@@ -215,7 +215,7 @@
 		if ($vb_content_is_list) {
 			foreach($pa_content as $vs_val) {
 				$vs_id_attr = ($vs_id) ? 'id="'.$vs_id.'_'.$vn_i.'"' : '';
-				$SELECTED = ($vs_selected_val == $vs_val) ? ' selected="1"' : '';
+				$SELECTED = ($vs_selected_val == $vs_val) ? ' checked="checked"' : '';
 				$DISABLED = (isset($va_disabled_options[$vs_val]) && $va_disabled_options[$vs_val]) ? ' disabled="1"' : '';
 				$vs_element .= "<input type='radio' name='{$ps_name}' {$vs_id_attr} value='".htmlspecialchars($vs_val, ENT_QUOTES, 'UTF-8')."'{$SELECTED}{$DISABLED}> ".$vs_val."\n";
 			
@@ -224,7 +224,7 @@
 		} else {
 			foreach($pa_content as $vs_opt => $vs_val) {
 				$vs_id_attr = ($vs_id) ? 'id="'.$vs_id.'_'.$vn_i.'"' : '';
-				$SELECTED = ($vs_selected_val == $vs_val) ? ' selected="1"' : '';
+				$SELECTED = ($vs_selected_val == $vs_val) ? ' checked="checked"' : '';
 				$DISABLED = (isset($va_disabled_options[$vs_val]) && $va_disabled_options[$vs_val]) ? ' disabled="1"' : '';
 				$vs_element .= "<input type='radio' name='{$ps_name}' {$vs_id_attr} value='".htmlspecialchars($vs_val, ENT_QUOTES, 'UTF-8')."'{$SELECTED}{$DISABLED}> ".$vs_opt."\n";
 			
