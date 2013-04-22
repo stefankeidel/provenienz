@@ -1714,6 +1714,12 @@ input.searchSetsTextInput {
 	outline-width: 0 !important;
 }
 
+#searchAndReplacePreviewInfo {
+	padding: 5px 5px 5px 5px;
+	border: 1px solid #000000;
+	font-size: 11px;
+}
+
 .qlButtonContainerThumbnail{
 	width:76px;
 	font-size:11px;

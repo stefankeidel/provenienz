@@ -35,6 +35,7 @@
   */
 	require_once(__CA_LIB_DIR__."/ca/BaseRefineableSearchController.php");
 	require_once(__CA_LIB_DIR__."/ca/Browse/ObjectBrowse.php");
+	require_once(__CA_LIB_DIR__."/ca/Search/SearchAndReplaceSearchResult.php");
 	require_once(__CA_LIB_DIR__."/core/Datamodel.php");
 	require_once(__CA_MODELS_DIR__."/ca_search_forms.php");
  	require_once(__CA_APP_DIR__.'/helpers/accessHelpers.php');
@@ -308,10 +309,14 @@
 							$this->view->setVar($vs_key, $vs_val);
 						}
 					}
-					if (isset($pa_options['view']) && $pa_options['view']) { 
-						$this->render($pa_options['view']);
+					if (isset($pa_options['dont_render']) && $pa_options['dont_render']){
+						break;
 					} else {
-						$this->render('Search/'.$this->ops_tablename.'_search_basic_html.php');
+						if (isset($pa_options['view']) && $pa_options['view']) { 
+						$this->render($pa_options['view']);
+						} else {
+							$this->render('Search/'.$this->ops_tablename.'_search_basic_html.php');
+						}	
 					}
 					break;
 				# ------------------------------------
@@ -434,6 +439,49 @@
  			
  			$this->view->setVar('matches', $va_data);
  			$this->render('Search/ajax_search_lookup_json.php');
+ 		}
+ 		# -------------------------------------------------------
+ 		# search and replace
+ 		# -------------------------------------------------------
+ 		public function SearchAndReplacePreview($pa_options=null){
+ 			if($pa_options){
+ 				caDebug($pa_options);
+ 			}
+ 			// search expression can't be empty
+ 			if(!($vs_search = $this->request->getParameter('caReplaceSearch',pString))){
+ 				$this->notification->addNotification(_t("You must specify a valid expression for search and replace"), __NOTIFICATION_TYPE_ERROR__);
+ 				$this->Index();
+ 				return;
+ 			}
+
+ 			// replace actually can be empty
+ 			$vs_replace = $this->request->getParameter('caReplaceWith',pString);
+
+ 			// options
+ 			$vb_include_all_pages = ($this->request->getParameter('caIncludeAllPagesForReplace',pString) == "all");
+ 			$vb_not_case_sensitive = ($this->request->getParameter('caReplacementCaseSensitive',pString) == "ci");
+ 			$vb_include_all_fields = ($this->request->getParameter('caIncludeAllFieldsForReplacement',pString) == "all");
+
+ 			// let Index() do its magic, like getting the search result and setting up most of the view
+ 			$this->Index(array('dont_render' => true));
+
+ 			$t_display = $this->view->getVar('t_display');
+
+ 			// replace original search result with SearchAndReplaceSearchResult
+ 			$vo_result = $this->view->getVar('result');
+ 			$vo_snr_result = new SearchAndReplaceSearchResult($vo_result);
+
+ 			$this->view->setVar('result',$vo_snr_result);
+ 			$this->view->setVar('is_snr_preview',true);
+ 			$this->view->setVar('snr_search',$vs_search);
+ 			$this->view->setVar('snr_replace',$vs_replace);
+
+ 			// now render view with new 'fake' search result
+ 			if (isset($pa_options['view']) && $pa_options['view']) { 
+				$this->render($pa_options['view']);
+			} else {
+				$this->render('Search/'.$this->ops_tablename.'_search_basic_html.php');
+			}
  		}
  		# -------------------------------------------------------
  		/**

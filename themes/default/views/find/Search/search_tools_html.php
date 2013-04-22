@@ -101,7 +101,7 @@
 	</div><!-- end bg -->
 	<!-- search and replace -->
 	<div class="bg" style='margin-top:3px'>
-		<?php print caFormTag($this->request, 'SearchAndReplace', 'caSearchAndReplaceForm', $this->request->getModulePath().'/'.$this->request->getController(), 'post', 'multipart/form-data', '_top', array('disableUnsavedChangesWarning' => true)); ?>
+		<?php print caFormTag($this->request, 'SearchAndReplacePreview', 'caSearchAndReplaceForm', $this->request->getModulePath().'/'.$this->request->getController(), 'post', 'multipart/form-data', '_top', array('disableUnsavedChangesWarning' => true)); ?>
 			<div class="col">
 				<?php print _t("Replace"); ?>
 				<?php print caHTMLTextInput('caReplaceSearch',array('width' => '25')); ?>
