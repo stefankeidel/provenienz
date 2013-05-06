@@ -345,7 +345,7 @@ class BundlableLabelableBaseModelWithAttributes extends LabelableBaseModelWithAt
 					$t_lookup = $this->_DATAMODEL->getInstanceByTableName($this->tableName());
 				
 					$va_tmp = $vs_sep ? preg_split("![{$vs_sep}]+!", $vs_idno_stub) : array($vs_idno_stub);
-					$vs_suffix = is_array($va_tmp) ? array_pop($va_tmp) : '';
+					$vs_suffix = (is_array($va_tmp) && (sizeof($va_tmp) > 1)) ? array_pop($va_tmp) : '';
 					if (!is_numeric($vs_suffix)) { 
 						$vs_suffix = 0; 
 					} else {
@@ -1742,7 +1742,14 @@ class BundlableLabelableBaseModelWithAttributes extends LabelableBaseModelWithAt
 						# --------------------
 						default:
 							if ($va_tmp[0] != $this->tableName()) {
-								return caHTMLTextInput($ps_field, array('value' => $pa_options['values'][$ps_field], 'size' => $pa_options['width'], 'id' => str_replace('.', '_', $ps_field)));
+								switch(sizeof($va_tmp)) {
+									case 1:
+										return caHTMLTextInput($ps_field, array('value' => $pa_options['values'][$ps_field], 'size' => $pa_options['width'], 'id' => str_replace('.', '_', $ps_field)));
+									case 2:
+									case 3:
+										return $t_instance->htmlFormElementForSearch($po_request, $ps_field, $pa_options);
+										break;
+								}
 							}
 							break;
 						# --------------------
