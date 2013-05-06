@@ -40,6 +40,14 @@ class SearchAndReplaceSearchResult {
 	 * The original search result
 	 */
 	protected $opo_original_result;
+
+	/**
+	 * Options
+	 */
+	protected $ops_search;
+	protected $ops_replace;
+	protected $opb_not_case_sensitive;
+
 	# ------------------------------------------------------------------
 	/**
 	 * SearchAndReplaceSearchResult objects are always constructed from
@@ -47,12 +55,37 @@ class SearchAndReplaceSearchResult {
 	 * 
 	 * @param BaseSearchResult $po_result existing search result
 	 */
-	public function __construct($po_result) {
+	public function __construct($po_result,$ps_search,$ps_replace,$pa_options) {
 		$this->opo_original_result = $po_result;
+		$this->ops_search = $ps_search;
+		$this->ops_replace = $ps_replace;
+		$this->opb_not_case_sensitive = (isset($pa_options['not_case_sensitive']) ? (bool)$pa_options['not_case_sensitive'] : false );
+	}
+	# ------------------------------------------------------------------
+	public function getSearchAndReplacePreview($pa_display_item) {
+		if(!$pa_display_item['allowInlineEditing']){
+			return "";
+		}
+
+		$vs_original_val = $this->opo_original_result->get($pa_display_item['bundle_name']);
+
+		if($this->opb_not_case_sensitive){
+			$vs_replace_val = preg_replace("!".$this->ops_search."!i", $this->ops_replace, $vs_original_val);
+		} else {
+			$vs_replace_val = preg_replace("!".$this->ops_search."!", $this->ops_replace, $vs_original_val);	
+		}
+
+		return array(
+			'original' => $vs_original_val,
+			'new' => $vs_replace_val,
+			'search' => $this->ops_search,
+			'replace' => $this->ops_replace,
+			'replaced' => ($vs_original_val != $vs_replace_val),
+		);
 	}
 	# ------------------------------------------------------------------
 	/**
-	 * Reroute calls for unimplemented functions as-is to original search result
+	 * Reroute calls for unimplemented functions to original search result
 	 */
 	public function __call($ps_name,$pa_args){
 		return call_user_func_array(array($this->opo_original_result, $ps_name), $pa_args);

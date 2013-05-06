@@ -1,6 +1,6 @@
 <?php
 /* ----------------------------------------------------------------------
- * themes/default/views/find/Results/search_and_replace_preview_info_html.php :
+ * themes/default/views/find/Results/search_and_replace_preview_html.php
  * ----------------------------------------------------------------------
  * CollectiveAccess
  * Open-source collections management software
@@ -26,14 +26,28 @@
  * ----------------------------------------------------------------------
  */
 
+$vb_is_snr_preview		= (bool) $this->getVar('is_snr_preview');
+
+if($vb_is_snr_preview) {
 	$vs_search = $this->getVar('snr_search');
 	$vs_replace = $this->getVar('snr_replace');
+	?>
+
+	<div id='searchAndReplacePreviewInfo' class='rounded'>
+	<?php 
+
+		print "<div>"._t("This is only a preview. To execute the search and replace operation, click the button below.")."</div>";
+		print "<div>".caJSButton($this->request,__CA_NAV_BUTTON_GO__,_t("View stats and commit changes"),'stats', array('href' => '#', 'onclick' => 'caShowScreenForSearchAndReplace(); return false;'))."</div>";
+	?>
+	</div>
+
+	<?php
+}
+
 ?>
 
-<div id='searchAndReplacePreviewInfo' class='rounded'>
-<?php 
-	print caNavIcon($this->request,__CA_NAV_BUTTON_ALERT__)."\n"; 
-	print _t("You're about to replace all instances of &quot;%1&quot; with &quot;%2&quot;. Below is a preview.",$vs_search,$vs_replace);
-?>
-
-</div>
+<script type="text/javascript">
+	function caShowScreenForSearchAndReplace(){
+		
+	}
+</script>

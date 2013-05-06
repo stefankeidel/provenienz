@@ -477,11 +477,9 @@
  		# -------------------------------------------------------
  		# search and replace
  		# -------------------------------------------------------
- 		public function SearchAndReplacePreview($pa_options=null){
- 			if($pa_options){
- 				caDebug($pa_options);
- 			}
- 			// search expression can't be empty
+ 		public function SearchAndReplacePreview(){
+
+ 			// search expression can't be empty, redirect to index if empty
  			if(!($vs_search = $this->request->getParameter('caReplaceSearch',pString))){
  				$this->notification->addNotification(_t("You must specify a valid expression for search and replace"), __NOTIFICATION_TYPE_ERROR__);
  				$this->Index();
@@ -491,10 +489,13 @@
  			// replace actually can be empty
  			$vs_replace = $this->request->getParameter('caReplaceWith',pString);
 
- 			// options
+ 			// get options and set options for view
  			$vb_include_all_pages = ($this->request->getParameter('caIncludeAllPagesForReplace',pString) == "all");
  			$vb_not_case_sensitive = ($this->request->getParameter('caReplacementCaseSensitive',pString) == "ci");
- 			$vb_include_all_fields = ($this->request->getParameter('caIncludeAllFieldsForReplacement',pString) == "all");
+
+ 			$this->view->setVar('include_all_pages',($vb_include_all_pages ? 'all' : 'current'));
+ 			$this->view->setVar('not_case_sensitive',($vb_not_case_sensitive ? 'ci' : 'cs'));
+
 
  			// let Index() do its magic, like getting the search result and setting up most of the view
  			$this->Index(array('dont_render' => true));
@@ -503,7 +504,9 @@
 
  			// replace original search result with SearchAndReplaceSearchResult
  			$vo_result = $this->view->getVar('result');
- 			$vo_snr_result = new SearchAndReplaceSearchResult($vo_result);
+ 			$vo_snr_result = new SearchAndReplaceSearchResult($vo_result,$vs_search,$vs_replace,array(
+ 				'not_case_sensitive' => $vb_not_case_sensitive,
+ 			));
 
  			$this->view->setVar('result',$vo_snr_result);
  			$this->view->setVar('is_snr_preview',true);

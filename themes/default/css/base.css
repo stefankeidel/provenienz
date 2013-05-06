@@ -1635,6 +1635,19 @@ select.searchToolsSelect {
 	font-size: 11px;
 }
 
+#searchAndReplaceBox{
+	font-size:12px;
+	padding:6px 3px 6px 10px;
+	color:#333;
+	background-color: #E2E2E2;
+}
+
+#searchAndReplaceBox .col{
+	float:left;
+	margin-right:15px;
+	color:#333;
+}
+
 /* search visualization - horizontal show hide */
 #showViz, #hideViz {
 	float:right;
@@ -1724,6 +1737,8 @@ input.searchSetsTextInput {
 	padding: 5px 5px 5px 5px;
 	border: 1px solid #000000;
 	font-size: 11px;
+	margin-top:5px;
+	text-align:center;
 }
 
 .qlButtonContainerThumbnail{

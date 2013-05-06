@@ -27,7 +27,6 @@
  */ 
 	$vo_result 				= $this->getVar('result');
  	$vo_result_context 		= $this->getVar('result_context');
- 	$vb_is_snr_preview		= (bool) $this->getVar('is_snr_preview');
  	
  	print $this->render('Search/search_controls_html.php');
  ?>
@@ -42,11 +41,7 @@
 ?>
 
 	<div class="sectionBox">
-<?php 
-		if($vb_is_snr_preview){
-			print $this->render('Results/search_and_replace_preview_info_html.php');
-		}
-
+<?php
 		switch($vs_view) {
 			case 'full':
 				print $this->render('Results/ca_objects_results_full_html.php');
@@ -56,6 +51,9 @@
 				break;
 			case 'editable':
 				print $this->render('Results/ca_objects_results_editable_html.php');
+				break;
+			case 'search_and_replace':
+				print $this->render('Results/ca_objects_results_search_and_replace_html.php');
 				break;
 			case 'no_results':
 				print $this->render('Results/no_results_html.php');

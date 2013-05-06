@@ -99,49 +99,6 @@
 		<a href='#' id='hideTools' onclick='return caHandleResultsUIBoxes("tools", "hide");'><img src="<?php print $this->request->getThemeUrlPath(); ?>/graphics/icons/collapse.gif" width="11" height="11" border="0"></a>
 		<div style='clear:both;height:1px;'>&nbsp;</div>
 	</div><!-- end bg -->
-	<!-- search and replace -->
-	<div class="bg" style='margin-top:3px'>
-		<?php print caFormTag($this->request, 'SearchAndReplacePreview', 'caSearchAndReplaceForm', $this->request->getModulePath().'/'.$this->request->getController(), 'post', 'multipart/form-data', '_top', array('disableUnsavedChangesWarning' => true)); ?>
-			<div class="col">
-				<?php print _t("Replace"); ?>
-				<?php print caHTMLTextInput('caReplaceSearch',array('width' => '25')); ?>
-			</div>
-			<div class="col">
-				<?php print _t("With"); ?>
-				<?php print caHTMLTextInput('caReplaceWith',array('width' => '25')); ?>
-			</div>
-			<div class="col">
-				<a href="#" onclick="return caToggleAdvancedSearchAndReplaceOptions();"><?php print _t("Advanced options") ?></a>
-			</div>
-			<div class="col">
-				<?php print caFormSubmitButton($this->request, __CA_NAV_BUTTON_GO__, '', 'caSearchAndReplaceForm'); ?>
-			</div>
-			<div style='clear:both;height:1px;'>&nbsp;</div>
-			<div id="caAdvancedSearchAndReplaceOptions">
-				<div class="col">
-					<?php print caHTMLRadioButtonsInput('caIncludeAllPagesForReplace',array(
-						_t('Limit replacements to current page') => 'current',
-						_t('Include all pages') => 'all',
-					),null,array('value' => 'current')); ?>
-				</div>
-				<div style='clear:both;height:1px;'>&nbsp;</div>
-				<div class="col">
-					<?php print caHTMLRadioButtonsInput('caReplacementCaseSensitive',array(
-						_t('case sensitive') => 'cs',
-						_t('case insensitive') => 'ci',
-					),null,array('value' => 'cs')); ?>
-				</div>
-				<div style='clear:both;height:1px;'>&nbsp;</div>
-				<div class="col">
-					<?php print caHTMLRadioButtonsInput('caIncludeAllFieldsForReplacement',array(
-						_t('limit to fields in current display') => 'current',
-						_t('include all applicable fields and elements') => 'all',
-					),null,array('value' => 'current')); ?>
-				</div>
-			</div>
-			<div style='clear:both;height:1px;'>&nbsp;</div>
-		</form>
-	</div>
 </div><!-- end searchToolsBox -->
 
 <script type="text/javascript">
@@ -153,13 +110,4 @@
 			jQuery(window).attr('location', '<?php print caNavUrl($this->request, $this->request->getModulePath(), $this->request->getController(), 'DownloadRepresentations'); ?>' + '/<?php print $t_subject->tableName(); ?>/' + caGetSelectedItemIDsToAddToSet().join(';') + '/version/' + tmp[1] + '/download/1');
 		}
 	}
-
-	function caToggleAdvancedSearchAndReplaceOptions() {
-		jQuery('#caAdvancedSearchAndReplaceOptions').toggle();
-	}
-
-	jQuery(document).ready(function(){
-		jQuery('#caAdvancedSearchAndReplaceOptions').hide();	
-	});
-
 </script>
