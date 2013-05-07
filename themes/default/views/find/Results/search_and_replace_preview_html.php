@@ -45,9 +45,3 @@ if($vb_is_snr_preview) {
 }
 
 ?>
-
-<script type="text/javascript">
-	function caShowScreenForSearchAndReplace(){
-		
-	}
-</script>

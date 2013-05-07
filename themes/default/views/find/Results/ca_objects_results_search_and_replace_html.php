@@ -38,7 +38,7 @@
 	print $this->render('Results/search_and_replace_preview_html.php');
 	
 ?>
-<div id="scrollingResults">
+<div style="height:500px; overflow: scroll;">
 	<form id="caFindResultsForm">
 		<table class="listtable" width="100%" border="0" cellpadding="0" cellspacing="1">
 			<thead>
@@ -73,7 +73,7 @@
 			$i = 0;
 			$vn_item_count = 0;
 			
-			while(($vn_item_count < $vn_items_per_page) && $vo_result->nextHit()) {
+			while($vo_result->nextHit()) {
 				$vn_object_id = $vo_result->get('object_id');
 				
 				($i == 2) ? $i = 0 : "";

@@ -31,8 +31,9 @@
 $vs_search = $this->getVar('snr_search');
 $vs_replace = $this->getVar('snr_replace');
 
-$vs_include_all_pages = $this->getVar('include_all_pages');
-$vs_case_sensitive = $this->getVar('not_case_sensitive');
+if(!($vs_case_sensitive = $this->getVar('not_case_sensitive'))){
+	$vs_case_sensitive = "cs";
+}
 
 ?>
 		<!-- search and replace -->
@@ -51,12 +52,6 @@ $vs_case_sensitive = $this->getVar('not_case_sensitive');
 				</div>
 				<div style='clear:both;height:1px;'>&nbsp;</div>
 				<div id="caAdvancedSearchAndReplaceOptions">
-					<div class="col">
-						<?php print caHTMLRadioButtonsInput('caIncludeAllPagesForReplace',array(
-							_t('Limit replacements to current page') => 'current',
-							_t('Include all pages') => 'all',
-						),null,array('value' => $vs_include_all_pages)); ?>
-					</div>
 					<div style='clear:both;height:1px;'>&nbsp;</div>
 					<div class="col">
 						<?php print caHTMLRadioButtonsInput('caReplacementCaseSensitive',array(

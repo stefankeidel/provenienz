@@ -490,12 +490,9 @@
  			$vs_replace = $this->request->getParameter('caReplaceWith',pString);
 
  			// get options and set options for view
- 			$vb_include_all_pages = ($this->request->getParameter('caIncludeAllPagesForReplace',pString) == "all");
  			$vb_not_case_sensitive = ($this->request->getParameter('caReplacementCaseSensitive',pString) == "ci");
 
- 			$this->view->setVar('include_all_pages',($vb_include_all_pages ? 'all' : 'current'));
  			$this->view->setVar('not_case_sensitive',($vb_not_case_sensitive ? 'ci' : 'cs'));
-
 
  			// let Index() do its magic, like getting the search result and setting up most of the view
  			$this->Index(array('dont_render' => true));
