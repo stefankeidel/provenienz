@@ -491,24 +491,50 @@
 
  			// get options and set options for view
  			$vb_not_case_sensitive = ($this->request->getParameter('caReplacementCaseSensitive',pString) == "ci");
-
  			$this->view->setVar('not_case_sensitive',($vb_not_case_sensitive ? 'ci' : 'cs'));
 
  			// let Index() do its magic, like getting the search result and setting up most of the view
  			$this->Index(array('dont_render' => true));
 
- 			$t_display = $this->view->getVar('t_display');
+ 			// store search and replace strings and options in result context for easy access
+ 			$va_snr_options = array(
+ 				'not_case_sensitive' => $vb_not_case_sensitive,
+ 			);
+
+ 			$this->opo_result_context->setParameter("snr_search",$vs_search);
+ 			$this->opo_result_context->setParameter("snr_replace",$vs_replace);
+ 			$this->opo_result_context->setParameter("snr_options",$va_snr_options);
+ 			$this->opo_result_context->saveContext();
 
  			// replace original search result with SearchAndReplaceSearchResult
  			$vo_result = $this->view->getVar('result');
- 			$vo_snr_result = new SearchAndReplaceSearchResult($vo_result,$vs_search,$vs_replace,array(
- 				'not_case_sensitive' => $vb_not_case_sensitive,
- 			));
+ 			$vo_snr_result = new SearchAndReplaceSearchResult($vo_result,$vs_search,$vs_replace,$va_snr_options);
 
  			$this->view->setVar('result',$vo_snr_result);
  			$this->view->setVar('is_snr_preview',true);
  			$this->view->setVar('snr_search',$vs_search);
  			$this->view->setVar('snr_replace',$vs_replace);
+
+ 			// now render view with new search result
+ 			if (isset($pa_options['view']) && $pa_options['view']) { 
+				$this->render($pa_options['view']);
+			} else {
+				$this->render('Search/'.$this->ops_tablename.'_search_basic_html.php');
+			}
+ 		}
+ 		# -------------------------------------------------------
+ 		public function SearchAndReplace(){
+ 			// let Index() do its magic, like getting the search result and setting up most of the view
+ 			$this->Index(array('dont_render' => true));
+
+ 			$vs_search = $this->opo_result_context->getParameter("snr_search");
+ 			$vs_replace = $this->opo_result_context->getParameter("snr_replace");
+ 			$va_snr_options = $this->opo_result_context->getParameter("snr_options");
+
+ 			$vo_result = $this->view->getVar('result');
+ 			$vo_snr_result = new SearchAndReplaceSearchResult($vo_result,$vs_search,$vs_replace,$va_snr_options);
+
+ 			$vo_snr_result->doSearchAndReplace();
 
  			// now render view with new 'fake' search result
  			if (isset($pa_options['view']) && $pa_options['view']) { 

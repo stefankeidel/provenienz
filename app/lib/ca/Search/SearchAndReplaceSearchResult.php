@@ -84,6 +84,11 @@ class SearchAndReplaceSearchResult {
 		);
 	}
 	# ------------------------------------------------------------------
+	public function doSearchAndReplace(){
+		caDebug($this->ops_search);
+		caDebug($this->ops_replace);
+	}
+	# ------------------------------------------------------------------
 	/**
 	 * Reroute calls for unimplemented functions to original search result
 	 */
