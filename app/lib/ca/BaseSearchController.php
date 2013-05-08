@@ -534,7 +534,9 @@
  			$vo_result = $this->view->getVar('result');
  			$vo_snr_result = new SearchAndReplaceSearchResult($vo_result,$vs_search,$vs_replace,$va_snr_options);
 
- 			$vo_snr_result->doSearchAndReplace();
+ 			// do search and replace for display
+ 			$va_display_list = $this->view->getVar('display_list');
+ 			$vo_snr_result->doSearchAndReplace($va_display_list);
 
  			// now render view with new 'fake' search result
  			if (isset($pa_options['view']) && $pa_options['view']) { 

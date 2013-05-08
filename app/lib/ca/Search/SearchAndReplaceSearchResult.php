@@ -48,6 +48,11 @@ class SearchAndReplaceSearchResult {
 	protected $ops_replace;
 	protected $opb_not_case_sensitive;
 
+	/**
+	 * State
+	 */
+	protected $opn_replacement_count;
+
 	# ------------------------------------------------------------------
 	/**
 	 * SearchAndReplaceSearchResult objects are always constructed from
@@ -84,9 +89,19 @@ class SearchAndReplaceSearchResult {
 		);
 	}
 	# ------------------------------------------------------------------
-	public function doSearchAndReplace(){
-		caDebug($this->ops_search);
-		caDebug($this->ops_replace);
+	public function doSearchAndReplace($pa_display_list){
+		// store old pointer
+		$vn_old_index = $this->opo_original_result->currentIndex();
+		$this->opo_original_result->seek(0);
+
+		while($this->opo_original_result->nextHit()){
+			foreach($pa_display_list as $vs_placement => $va_display_item){
+				
+			}
+		}
+
+		// restore old pointer
+		$this->opo_original_result->seek($vn_old_index);
 	}
 	# ------------------------------------------------------------------
 	/**
