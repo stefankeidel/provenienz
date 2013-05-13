@@ -92,7 +92,7 @@
 					foreach($va_display_list as $vn_placement_id => $va_display_item) {
 						if(($vo_result instanceof SearchAndReplaceSearchResult) && $va_display_item['allowInlineEditing']){
 							// print search and replace preview with old and new values
-							$va_snr = $vo_result->getSearchAndReplacePreview($va_display_item);
+							$va_snr = $vo_result->getSearchAndReplacePreviewForItem($va_display_item);
 							if($va_snr['replaced']){
 								// @TODO: some form of reasonable display
 								print "<td>";

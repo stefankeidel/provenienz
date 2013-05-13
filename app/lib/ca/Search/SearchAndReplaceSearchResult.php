@@ -67,7 +67,13 @@ class SearchAndReplaceSearchResult {
 		$this->opb_not_case_sensitive = (isset($pa_options['not_case_sensitive']) ? (bool)$pa_options['not_case_sensitive'] : false );
 	}
 	# ------------------------------------------------------------------
-	public function getSearchAndReplacePreview($pa_display_item) {
+	/**
+	 * Get search and replace preview for single display item
+	 * @param array $pa_display_item array representation of display item
+	 * @return array array containing the original value, the new value, the search expression,
+	 *   the replace expression and a flag that indicates whether something has been replaced
+	 */
+	public function getSearchAndReplacePreviewForItem($pa_display_item) {
 		if(!$pa_display_item['allowInlineEditing']){
 			return "";
 		}
@@ -89,14 +95,89 @@ class SearchAndReplaceSearchResult {
 		);
 	}
 	# ------------------------------------------------------------------
-	public function doSearchAndReplace($pa_display_list){
+	/**
+	 * Execute search and replace on the whole search result for given display item list
+	 */
+	public function saveSearchAndReplace($pa_display_list,$po_request){
+		global $g_ui_locale_id;
+
 		// store old pointer
 		$vn_old_index = $this->opo_original_result->currentIndex();
 		$this->opo_original_result->seek(0);
 
+		$vs_table = $this->opo_original_result->getResultTableName();
+		$o_dm = Datamodel::load();
+		$t_instance = $o_dm->getInstanceByTableName($vs_table, true);
+
 		while($this->opo_original_result->nextHit()){
-			foreach($pa_display_list as $vs_placement => $va_display_item){
-				
+			if($t_instance->load($this->opo_original_result->get($t_instance->primaryKey()))) {
+				$t_instance->setMode(ACCESS_WRITE);
+
+				foreach($pa_display_list as $vs_placement => $va_display_item){
+					// not all display items support replacements. skip those that don't
+					//if(!$va_display_item['allowInlineEditing']){ continue; }
+					if (!$t_instance->isSaveable($po_request)){ continue; }
+
+
+
+					$va_tmp = explode(".",$va_display_item['bundle_name']);
+					switch(sizeof($va_tmp)){
+						case 1:
+							$vs_bundle = $va_tmp[0];
+							break;
+						case 2:
+						default:
+							$vs_bundle = $va_tmp[1];
+							break;
+					}
+
+					if($po_request->user->getBundleAccessLevel($vs_table, $vs_bundle) != __CA_BUNDLE_ACCESS_EDIT__) { continue; }
+					$vs_pattern = "!".$this->ops_search.($this->opb_not_case_sensitive ? "!i" : "!");
+
+					//
+					// LABELS
+					// 
+					if($vs_bundle == "preferred_labels"){
+						$vn_label_id = $t_instance->getPreferredLabelID($g_ui_locale_id);
+						$vs_original_val = $t_instance->get($va_display_item['bundle_name']);
+						
+
+						if(preg_match($vs_pattern,$vs_original_val)){
+							$vs_new_val = preg_replace($vs_pattern, $this->ops_replace, $vs_original_val);
+							$va_label_values = array();
+							$va_label_values[$t_instance->getLabelDisplayField()] = $vs_new_val;
+							if($vn_label_id){
+								$t_instance->editLabel($vn_label_id, $va_label_values, $g_ui_locale_id, null, true);
+							}
+						}
+					//
+					// INTRINSICS
+					// 
+					} elseif($t_instance->hasField($vs_bundle)) {
+						$vs_original_val = $t_instance->get($vs_bundle);
+						if(preg_match($vs_pattern,$vs_original_val)){
+							$vs_new_val = preg_replace($vs_pattern, $this->ops_replace, $vs_original_val);
+							$t_instance->set($vs_bundle,$vs_new_val);
+							$t_instance->update();
+						}
+					//
+					// ATTRIBUTES
+					// 
+					} elseif($t_instance->hasElement($vs_bundle)) {
+						$vn_datatype = ca_metadata_elements::getElementDatatype($vs_bundle);
+						if(in_array($vn_datatype,array(1,2,5,6,8,9,10,11,12))) {
+							$vs_original_val = $t_instance->get($va_display_item['bundle_name']);
+							if(preg_match($vs_pattern,$vs_original_val)){
+								$vs_new_val = preg_replace($vs_pattern, $this->ops_replace, $vs_original_val);
+								$t_instance->replaceAttribute(array(
+									'locale_id' => $g_ui_locale_id,
+									$vs_bundle => $vs_new_val
+								), $vs_bundle);
+								$t_instance->update();
+							}
+						}
+					}
+				}	
 			}
 		}
 

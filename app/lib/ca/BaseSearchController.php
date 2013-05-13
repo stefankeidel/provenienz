@@ -527,23 +527,21 @@
  			// let Index() do its magic, like getting the search result and setting up most of the view
  			$this->Index(array('dont_render' => true));
 
+ 			// get snr form data from result context
  			$vs_search = $this->opo_result_context->getParameter("snr_search");
  			$vs_replace = $this->opo_result_context->getParameter("snr_replace");
  			$va_snr_options = $this->opo_result_context->getParameter("snr_options");
 
+ 			// set up snr search result
  			$vo_result = $this->view->getVar('result');
  			$vo_snr_result = new SearchAndReplaceSearchResult($vo_result,$vs_search,$vs_replace,$va_snr_options);
 
- 			// do search and replace for display
+ 			// do search and replace for given display
  			$va_display_list = $this->view->getVar('display_list');
- 			$vo_snr_result->doSearchAndReplace($va_display_list);
+ 			$vo_snr_result->saveSearchAndReplace($va_display_list,$this->request);
 
- 			// now render view with new 'fake' search result
- 			if (isset($pa_options['view']) && $pa_options['view']) { 
-				$this->render($pa_options['view']);
-			} else {
-				$this->render('Search/'.$this->ops_tablename.'_search_basic_html.php');
-			}
+ 			// run Index() again to actually render the new result
+ 			$this->Index();
  		}
  		# -------------------------------------------------------
  		/**
