@@ -35,7 +35,6 @@
   */
 	require_once(__CA_LIB_DIR__."/ca/BaseRefineableSearchController.php");
 	require_once(__CA_LIB_DIR__."/ca/Browse/ObjectBrowse.php");
-	require_once(__CA_LIB_DIR__."/ca/Search/SearchAndReplaceSearchResult.php");
 	require_once(__CA_LIB_DIR__."/core/Datamodel.php");
 	require_once(__CA_MODELS_DIR__."/ca_search_forms.php");
  	require_once(__CA_APP_DIR__.'/helpers/accessHelpers.php');
@@ -341,11 +340,11 @@
 							$this->view->setVar($vs_key, $vs_val);
 						}
 					}
-					if (isset($pa_options['dont_render']) && $pa_options['dont_render']){
+					if (isset($pa_options['dontRenderView']) && $pa_options['dontRenderView']){
 						break;
 					} else {
 						if (isset($pa_options['view']) && $pa_options['view']) { 
-						$this->render($pa_options['view']);
+							$this->render($pa_options['view']);
 						} else {
 							$this->render('Search/'.$this->ops_tablename.'_search_basic_html.php');
 						}	
@@ -473,6 +472,18 @@
  			
  			$this->view->setVar('matches', $va_data);
  			$this->render('Search/ajax_search_lookup_json.php');
+ 		}
+ 		# -------------------------------------------------------
+ 		public function SearchAndReplacePreview(){
+ 			// BaseFindController implementation takes care of the core logic
+ 			parent::SearchAndReplacePreview();
+
+ 			// now have to render appropriate view for basic search
+ 			if (isset($pa_options['view']) && $pa_options['view']) { 
+				$this->render($pa_options['view']);
+			} else {
+				$this->render('Search/'.$this->ops_tablename.'_search_basic_html.php');
+			}
  		}
  		# -------------------------------------------------------
  		/**

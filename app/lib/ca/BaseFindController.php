@@ -44,6 +44,7 @@
  	require_once(__CA_LIB_DIR__.'/core/Print/PrintForms.php');
  	require_once(__CA_LIB_DIR__.'/ca/Visualizer.php');
  	require_once(__CA_LIB_DIR__.'/core/Parsers/dompdf/dompdf_config.inc.php');
+ 	require_once(__CA_LIB_DIR__."/ca/Search/SearchAndReplaceSearchResult.php");
  	
 	class BaseFindController extends ActionController {
 		# ------------------------------------------------------------------
@@ -139,6 +140,7 @@
 						'display' => $t_model->getDisplayLabel($this->ops_tablename.'.'.$vs_idno_fld),
 						'settings' => array(),
 						'allowInlineEditing' => true,
+						'allowSearchAndReplace' => true,
 						'inlineEditingType' => DT_FIELD,
 						'inlineEditingListValues' => array()
 					);
@@ -152,6 +154,7 @@
 						'display' => $t_label->getDisplayLabel($t_label->tableName().'.'.$t_label->getDisplayField()),
 						'settings' => array(),
 						'allowInlineEditing' => true,
+						'allowSearchAndReplace' => true,
 						'inlineEditingType' => DT_FIELD,
 						'inlineEditingListValues' => array()
 					);
@@ -1036,7 +1039,7 @@
  			$this->view->setVar('not_case_sensitive',($vb_not_case_sensitive ? 'ci' : 'cs'));
 
  			// let Index() do its magic, like getting the search result and setting up most of the view
- 			$this->Index(array('dont_render' => true));
+ 			$this->Index(array('dontRenderView' => true));
 
  			// store search and replace strings and options in result context for easy access
  			$va_snr_options = array(
@@ -1056,18 +1059,11 @@
  			$this->view->setVar('is_snr_preview',true);
  			$this->view->setVar('snr_search',$vs_search);
  			$this->view->setVar('snr_replace',$vs_replace);
-
- 			// now render view with new search result
- 			if (isset($pa_options['view']) && $pa_options['view']) { 
-				$this->render($pa_options['view']);
-			} else {
-				$this->render('Search/'.$this->ops_tablename.'_search_basic_html.php');
-			}
  		}
  		# -------------------------------------------------------
  		public function SearchAndReplace(){
  			// let Index() do its magic, like getting the search result and setting up most of the view
- 			$this->Index(array('dont_render' => true));
+ 			$this->Index(array('dontRenderView' => true));
 
  			// get snr form data from result context
  			$vs_search = $this->opo_result_context->getParameter("snr_search");

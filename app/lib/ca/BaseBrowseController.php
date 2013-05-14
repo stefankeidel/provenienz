@@ -635,6 +635,18 @@
  			
  			return join("; ", $va_buf);
   		}
+  		# -------------------------------------------------------
+ 		public function SearchAndReplacePreview(){
+ 			// BaseFindController implementation takes care of the core logic
+ 			parent::SearchAndReplacePreview();
+
+ 			// now have to render appropriate view for browse
+ 			if (isset($pa_options['view']) && $pa_options['view']) { 
+				$this->render($pa_options['view']);
+			} else {
+				$this->render('Browse/browse_controls_html.php');
+			}
+ 		}
  		# -------------------------------------------------------
  		/**
  		 *

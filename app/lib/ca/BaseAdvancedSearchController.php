@@ -245,6 +245,18 @@
 			}				
  		}
  		# -------------------------------------------------------
+ 		public function SearchAndReplacePreview(){
+ 			// BaseFindController implementation takes care of the core logic
+ 			parent::SearchAndReplacePreview();
+
+ 			// now have to render appropriate view for advanced search
+ 			if (isset($pa_options['view']) && $pa_options['view']) { 
+				$this->render($pa_options['view']);
+			} else {
+				$this->render('Search/'.$this->ops_tablename.'_search_advanced_html.php');
+			}
+ 		}
+ 		# -------------------------------------------------------
  		/**
  		 * Returns string representing the name of the item the search will return
  		 *
@@ -319,6 +331,7 @@
  			
  			return join("; ", $va_buf);
   		}
+
  		# -------------------------------------------------------
  		# Sidebar info handler
  		# -------------------------------------------------------

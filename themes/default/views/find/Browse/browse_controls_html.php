@@ -125,10 +125,10 @@
 <?php
 	if (sizeof($va_criteria) > 0) {
 		# --- show results
-		if ($vs_view != 'map') { print $this->render('Results/paging_controls_html.php'); }
+		if (($vs_view != 'map') && ($vs_view != 'search_and_replace')) { print $this->render('Results/paging_controls_html.php'); }
 		print $this->render('Results/search_options_html.php');
 		print $this->render('Results/'.$this->getVar('target').'_results_'.$vs_view.'_html.php');
-		if ($vs_view != 'map') { print $this->render('Results/paging_controls_minimal_html.php'); }
+		if (($vs_view != 'map') && ($vs_view != 'search_and_replace')) { print $this->render('Results/paging_controls_minimal_html.php'); }
 	}
 	if (!$this->request->isAjax()) {
 ?>
