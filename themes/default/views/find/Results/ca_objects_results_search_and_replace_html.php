@@ -90,20 +90,24 @@
 					}
 					
 					foreach($va_display_list as $vn_placement_id => $va_display_item) {
-						if(($vo_result instanceof SearchAndReplaceSearchResult) && $va_display_item['allowInlineEditing']){
-							// print search and replace preview with old and new values
-							$va_snr = $vo_result->getSearchAndReplacePreviewForItem($va_display_item);
-							if($va_snr['replaced']){
-								// @TODO: some form of reasonable display
-								print "<td>";
-								print "OLD: ".$va_snr['original']."<br />";
-								print "NEW: ".$va_snr['new'];
-								print "</td>";
-							} else {
-								print "<td>".$va_snr['original']."</td>";
+						if($va_display_item['allowSearchAndReplace']){
+							if($vo_result instanceof SearchAndReplaceSearchResult) {
+								// print search and replace preview with old and new values
+								$va_snr = $vo_result->getSearchAndReplacePreviewForItem($va_display_item);
+								if($va_snr['replaced']){
+									// @TODO: some form of reasonable display
+									print "<td>";
+									print "OLD: ".$va_snr['original']."<br />";
+									print "NEW: ".$va_snr['new'];
+									print "</td>";
+								} else {
+									print "<td>".$va_snr['original']."</td>";
+								}
+							} else { // in this casse this is no preview yet
+								print "<td>".$t_display->getDisplayValue($vo_result, $vn_placement_id, array('request' => $this->request))."</td>";		
 							}
-						} else {
-							print "<td>".$t_display->getDisplayValue($vo_result, $vn_placement_id, array('request' => $this->request))."</td>";	
+						} else { // search and replace is not allowed for this field -> print in grey
+							print "<td style='background-color:#BEBEBE'>".$t_display->getDisplayValue($vo_result, $vn_placement_id, array('request' => $this->request))."</td>";	
 						}
 					}
 ?>	

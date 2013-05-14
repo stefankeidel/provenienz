@@ -481,14 +481,19 @@ class ca_bundle_displays extends BundlableLabelableBaseModelWithAttributes {
 					$t_instance = $o_dm->getInstanceByTableName($va_tmp[0], true);
 					$va_placements[$vn_placement_id]['display'] = ($t_instance ? $t_instance->getDisplayLabel($vs_bundle_name) : "???");
 				}
+
+				// initialize false and set to true where applicable below
+				// (labels, text-entry based attributes and non-dropdown intrinsics like idno)
+				$va_placements[$vn_placement_id]['allowSearchAndReplace'] = false;
 				
 				if ($va_bundle_name[0] == $vs_subject_table) {
 					// Only primary fields are inline-editable
 					
-					// Check if it is one of the types of fields that is inline editable
+					// Check if it is one of the types of fields that is inline editable or eligible for search and replace
 					if ($va_bundle_name[1] == 'preferred_labels') {
 						// Preferred labels are inline editable
 						$va_placements[$vn_placement_id]['allowInlineEditing'] = true;
+						$va_placements[$vn_placement_id]['allowSearchAndReplace'] = true;
 						$va_placements[$vn_placement_id]['inlineEditingType'] = DT_FIELD;
 					} elseif ($t_subject->hasField($va_bundle_name[1])) {
 						//
@@ -509,6 +514,7 @@ class ca_bundle_displays extends BundlableLabelableBaseModelWithAttributes {
 									}
 									break;
 								default:
+									$va_placements[$vn_placement_id]['allowSearchAndReplace'] = true;
 									$va_placements[$vn_placement_id]['inlineEditingType'] = DT_FIELD;
 									break;
 							}
@@ -526,6 +532,7 @@ class ca_bundle_displays extends BundlableLabelableBaseModelWithAttributes {
 							case 11:
 							case 12:
 								$va_placements[$vn_placement_id]['allowInlineEditing'] = true;
+								$va_placements[$vn_placement_id]['allowSearchAndReplace'] = true;
 								$va_placements[$vn_placement_id]['inlineEditingType'] = DT_FIELD;
 								break;
 							case 3:	// lists

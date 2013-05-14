@@ -74,7 +74,7 @@ class SearchAndReplaceSearchResult {
 	 *   the replace expression and a flag that indicates whether something has been replaced
 	 */
 	public function getSearchAndReplacePreviewForItem($pa_display_item) {
-		if(!$pa_display_item['allowInlineEditing']){
+		if(!$pa_display_item['allowSearchAndReplace']){
 			return "";
 		}
 
@@ -115,10 +115,8 @@ class SearchAndReplaceSearchResult {
 
 				foreach($pa_display_list as $vs_placement => $va_display_item){
 					// not all display items support replacements. skip those that don't
-					//if(!$va_display_item['allowInlineEditing']){ continue; }
+					if(!$va_display_item['allowSearchAndReplace']){ continue; }
 					if (!$t_instance->isSaveable($po_request)){ continue; }
-
-
 
 					$va_tmp = explode(".",$va_display_item['bundle_name']);
 					switch(sizeof($va_tmp)){

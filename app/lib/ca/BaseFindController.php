@@ -123,7 +123,6 @@
 					if ($vs_view == 'search_and_replace') {
 						$va_display_list[$vn_placement_id] = array_merge($va_display_list[$vn_placement_id], array(
 							'allowSearchAndReplace' => $va_display_item['allowSearchAndReplace'],
-							'allowInlineEditing' => $va_display_item['allowInlineEditing'],
 						));
 					}
 				}
