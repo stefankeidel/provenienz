@@ -72,6 +72,7 @@
 <?php
 			$i = 0;
 			$vn_item_count = 0;
+			$vn_replace_count = 0;
 			
 			while($vo_result->nextHit()) {
 				$vn_object_id = $vo_result->get('object_id');
@@ -95,11 +96,9 @@
 								// print search and replace preview with old and new values
 								$va_snr = $vo_result->getSearchAndReplacePreviewForItem($va_display_item);
 								if($va_snr['replaced']){
-									// @TODO: some form of reasonable display
-									print "<td>";
-									print "OLD: ".$va_snr['original']."<br />";
-									print "NEW: ".$va_snr['new'];
-									print "</td>";
+									print "<td id='caReplacePreview".$vn_replace_count."' style='color:#FF0000'>".$va_snr['new']."</td>";
+									TooltipManager::add('#caReplacePreview'.$vn_replace_count, _t("Original value: %1",$va_snr['original']));
+									$vn_replace_count++;
 								} else {
 									print "<td>".$va_snr['original']."</td>";
 								}

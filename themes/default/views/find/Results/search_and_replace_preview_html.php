@@ -36,7 +36,7 @@ if($vb_is_snr_preview) {
 	<div id='searchAndReplacePreviewInfo' class='rounded'>
 	<?php 
 
-		print "<div>"._t("This is only a preview.")."</div>";
+		print "<div>"._t("This is only a preview. Grey columns are ignored because they are not eligible for search and replace.")."</div>";
 		print "<div>";
 		print caNavButton($this->request,__CA_NAV_BUTTON_CANCEL__,_t("Cancel"),$this->request->getModulePath(), $this->request->getController(), "Index");
 		print caNavButton($this->request,__CA_NAV_BUTTON_GO__,_t("Save changes"),$this->request->getModulePath(), $this->request->getController(), "SearchAndReplace");
