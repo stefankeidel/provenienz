@@ -61,6 +61,7 @@
  		# -------------------------------------------------------
  		public function Index($pa_options=null) {
  			$po_search = (isset($pa_options['search']) && $pa_options['search']) ? $pa_options['search'] : null;
+ 			$pb_dont_render_view = (isset($pa_options['dontRenderView']) && (bool)$pa_options['dontRenderView']) ? true : false;
  			parent::Index($pa_options);
  			JavascriptLoadManager::register('browsable');	// need this to support browse panel when filtering/refining search results
  			
@@ -238,8 +239,9 @@
 					$this->opo_result_context->setAsLastFind();
 					$this->opo_result_context->saveContext();
 					
-					
-					$this->render('Search/'.$this->ops_tablename.'_search_advanced_html.php');
+					if(!$pb_dont_render_view){
+						$this->render('Search/'.$this->ops_tablename.'_search_advanced_html.php');
+					}
 					break;
 				# ------------------------------------
 			}				
@@ -250,11 +252,12 @@
  			parent::SearchAndReplacePreview();
 
  			// now have to render appropriate view for advanced search
- 			if (isset($pa_options['view']) && $pa_options['view']) { 
-				$this->render($pa_options['view']);
-			} else {
-				$this->render('Search/'.$this->ops_tablename.'_search_advanced_html.php');
-			}
+			$this->render('Search/'.$this->ops_tablename.'_search_advanced_html.php');
+ 		}
+ 		# -------------------------------------------------------
+ 		public function SearchAndReplace(){
+ 			// BaseFindController implementation takes care of the core logic
+ 			parent::SearchAndReplace();
  		}
  		# -------------------------------------------------------
  		/**

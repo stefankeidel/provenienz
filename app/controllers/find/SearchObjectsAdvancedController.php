@@ -69,7 +69,8 @@
 				'thumbnail' => _t('thumbnails'),
 				'full' => _t('full'),
 				'list' => _t('list'),
-				'editable' => _t('editable')
+				'editable' => _t('editable'),
+				'search_and_replace' => _t('search and replace')
 			 );
 			 
 			 $this->opa_sorts = array_merge(array(

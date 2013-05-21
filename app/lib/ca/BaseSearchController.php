@@ -479,11 +479,7 @@
  			parent::SearchAndReplacePreview();
 
  			// now have to render appropriate view for basic search
- 			if (isset($pa_options['view']) && $pa_options['view']) { 
-				$this->render($pa_options['view']);
-			} else {
-				$this->render('Search/'.$this->ops_tablename.'_search_basic_html.php');
-			}
+			$this->render('Search/'.$this->ops_tablename.'_search_basic_html.php');
  		}
  		# -------------------------------------------------------
  		/**

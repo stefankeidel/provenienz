@@ -42,8 +42,9 @@
 	if($vo_result) {
 		$vs_view = $this->getVar('current_view');
 		if ($vo_result->numHits() == 0) { $vs_view = 'no_results'; }
+		if (($vs_view == 'editable') || ($vs_view == 'search_and_replace')) { $this->setVar('dontShowPages', true); }
+
 		if ($vs_view != 'map') { print $this->render('Results/paging_controls_html.php'); }
-		
 		print $this->render('Results/search_options_html.php');
 ?>
 
@@ -58,6 +59,9 @@
 				break;
 			case 'map':
 				print $this->render('Results/ca_objects_results_map_html.php');
+				break;
+			case 'search_and_replace':
+				print $this->render('Results/ca_objects_results_search_and_replace_html.php');
 				break;
 			case 'no_results':
 				print $this->render('Results/no_results_html.php');

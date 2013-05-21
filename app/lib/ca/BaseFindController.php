@@ -1023,7 +1023,6 @@
  		# search and replace
  		# -------------------------------------------------------
  		public function SearchAndReplacePreview(){
-
  			// search expression can't be empty, redirect to index if empty
  			if(!($vs_search = $this->request->getParameter('caReplaceSearch',pString))){
  				$this->notification->addNotification(_t("You must specify a valid expression for search and replace"), __NOTIFICATION_TYPE_ERROR__);
