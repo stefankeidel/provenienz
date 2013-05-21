@@ -33,9 +33,18 @@
 	$vs_current_sort 		= $this->getVar('current_sort');
 	$vs_default_action		= $this->getVar('default_action');
 	$vo_ar					= $this->getVar('access_restrictions');
+	$vb_is_snr_preview		= (bool) $this->getVar('is_snr_preview');
+	$vb_did_snr				= (bool) $this->getVar('did_snr');
 
 	print $this->render('Results/search_and_replace_form_html.php');
-	print $this->render('Results/search_and_replace_preview_html.php');
+
+	if($vb_is_snr_preview){
+		print $this->render('Results/search_and_replace_preview_html.php');
+	}
+
+	if($vb_did_snr){
+		print $this->render('Results/search_and_replace_report_html.php');
+	}
 	
 ?>
 <div style="height:500px; overflow: scroll;">

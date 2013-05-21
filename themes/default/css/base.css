@@ -1741,6 +1741,14 @@ input.searchSetsTextInput {
 	text-align:center;
 }
 
+#searchAndReplaceReport {
+	padding: 10px 10px 10px 10px;
+	border: 1px solid #33CC00;
+	font-size: 12px;
+	margin-top: 10px;
+	text-align:center;
+}
+
 .qlButtonContainerThumbnail{
 	width:76px;
 	font-size:11px;

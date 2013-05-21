@@ -1077,6 +1077,9 @@
  			$va_display_list = $this->view->getVar('display_list');
  			$vo_snr_result->saveSearchAndReplace($va_display_list,$this->request);
 
+ 			$this->view->setVar('did_snr', true);
+ 			$this->view->setVar('snr_report', $vo_snr_result->getSearchAndReplaceReport());
+
  			// run Index() again to actually render the new result
  			$this->Index();
  		}

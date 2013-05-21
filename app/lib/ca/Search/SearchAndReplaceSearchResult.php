@@ -51,7 +51,10 @@ class SearchAndReplaceSearchResult {
 	/**
 	 * State
 	 */
-	protected $opn_replacement_count;
+	protected $opb_did_replace;
+	protected $opn_records_queried;
+	protected $opn_bundles_queried;
+	protected $opn_replacements;
 
 	# ------------------------------------------------------------------
 	/**
@@ -65,6 +68,12 @@ class SearchAndReplaceSearchResult {
 		$this->ops_search = $ps_search;
 		$this->ops_replace = $ps_replace;
 		$this->opb_not_case_sensitive = (isset($pa_options['not_case_sensitive']) ? (bool)$pa_options['not_case_sensitive'] : false );
+
+		// initial state
+		$this->opb_did_replace = false;
+		$this->opn_records_queried = 0;
+		$this->opn_bundles_queried = 0;
+		$this->opn_replacements = 0;
 	}
 	# ------------------------------------------------------------------
 	/**
@@ -112,6 +121,7 @@ class SearchAndReplaceSearchResult {
 		while($this->opo_original_result->nextHit()){
 			if($t_instance->load($this->opo_original_result->get($t_instance->primaryKey()))) {
 				$t_instance->setMode(ACCESS_WRITE);
+				$this->opn_records_queried++;
 
 				foreach($pa_display_list as $vs_placement => $va_display_item){
 					// not all display items support replacements. skip those that don't
@@ -130,6 +140,9 @@ class SearchAndReplaceSearchResult {
 					}
 
 					if($po_request->user->getBundleAccessLevel($vs_table, $vs_bundle) != __CA_BUNDLE_ACCESS_EDIT__) { continue; }
+
+					$this->opn_bundles_queried++;
+
 					$vs_pattern = "!".$this->ops_search.($this->opb_not_case_sensitive ? "!i" : "!");
 
 					//
@@ -141,7 +154,10 @@ class SearchAndReplaceSearchResult {
 						
 
 						if(preg_match($vs_pattern,$vs_original_val)){
-							$vs_new_val = preg_replace($vs_pattern, $this->ops_replace, $vs_original_val);
+							$vn_replacements = 0;
+							$vs_new_val = preg_replace($vs_pattern, $this->ops_replace, $vs_original_val, -1, $vn_replacements);
+							$this->opn_replacements += $vn_replacements;
+
 							$va_label_values = array();
 							$va_label_values[$t_instance->getLabelDisplayField()] = $vs_new_val;
 							if($vn_label_id){
@@ -154,7 +170,10 @@ class SearchAndReplaceSearchResult {
 					} elseif($t_instance->hasField($vs_bundle)) {
 						$vs_original_val = $t_instance->get($vs_bundle);
 						if(preg_match($vs_pattern,$vs_original_val)){
-							$vs_new_val = preg_replace($vs_pattern, $this->ops_replace, $vs_original_val);
+							$vn_replacements = 0;
+							$vs_new_val = preg_replace($vs_pattern, $this->ops_replace, $vs_original_val, -1, $vn_replacements);
+							$this->opn_replacements += $vn_replacements;
+
 							$t_instance->set($vs_bundle,$vs_new_val);
 							$t_instance->update();
 						}
@@ -166,7 +185,10 @@ class SearchAndReplaceSearchResult {
 						if(in_array($vn_datatype,array(1,2,5,6,8,9,10,11,12))) {
 							$vs_original_val = $t_instance->get($va_display_item['bundle_name']);
 							if(preg_match($vs_pattern,$vs_original_val)){
-								$vs_new_val = preg_replace($vs_pattern, $this->ops_replace, $vs_original_val);
+								$vn_replacements = 0;
+								$vs_new_val = preg_replace($vs_pattern, $this->ops_replace, $vs_original_val, -1, $vn_replacements);
+								$this->opn_replacements += $vn_replacements;
+
 								$t_instance->replaceAttribute(array(
 									'locale_id' => $g_ui_locale_id,
 									$vs_bundle => $vs_new_val
@@ -181,6 +203,23 @@ class SearchAndReplaceSearchResult {
 
 		// restore old pointer
 		$this->opo_original_result->seek($vn_old_index);
+
+		$this->opb_did_replace = true;
+	}
+	# ------------------------------------------------------------------
+	public function didSearchAndReplace(){
+		return $this->opb_did_replace;
+	}
+	# ------------------------------------------------------------------
+	public function getSearchAndReplaceReport(){
+		return array(
+			'did_replace' => $this->opb_did_replace,
+			'records_queried' => $this->opn_records_queried,
+			'bundles_queried' => $this->opn_bundles_queried,
+			'replacements' => $this->opn_replacements,
+			'search' => $this->ops_search,
+			'replace' => $this->ops_replace,
+		);
 	}
 	# ------------------------------------------------------------------
 	/**

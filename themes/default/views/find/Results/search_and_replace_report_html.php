@@ -1,6 +1,6 @@
 <?php
 /* ----------------------------------------------------------------------
- * themes/default/views/find/Results/search_and_replace_preview_html.php
+ * themes/default/views/find/Results/search_and_replace_report_html.php
  * ----------------------------------------------------------------------
  * CollectiveAccess
  * Open-source collections management software
@@ -26,18 +26,13 @@
  * ----------------------------------------------------------------------
  */
 
-	$vs_search = $this->getVar('snr_search');
-	$vs_replace = $this->getVar('snr_replace');
+$va_report = $this->getVar('snr_report');
+
+?>
+
+<div id='searchAndReplaceReport' class='rounded'>
+	<?php
+	print "<div>"._t("Successfully searched %1 records and %2 bundles for <em>'%3'</em> and replaced %4 instances with <em>'%5'</em>.",
+		$va_report['records_queried'],$va_report['bundles_queried'],$va_report['search'],$va_report['replacements'],$va_report['replace'])."</div>";
 	?>
-
-	<div id='searchAndReplacePreviewInfo' class='rounded'>
-	<?php 
-
-		print "<div>"._t("This is only a preview. Grey columns are ignored because they are not eligible for search and replace.")."</div>";
-		print "<div>";
-		print caNavButton($this->request,__CA_NAV_BUTTON_CANCEL__,_t("Cancel"),$this->request->getModulePath(), $this->request->getController(), "Index");
-		print caNavButton($this->request,__CA_NAV_BUTTON_GO__,_t("Save changes"),$this->request->getModulePath(), $this->request->getController(), "SearchAndReplace");
-		print "</div>";
-	?>
-	</div>
-
+</div>
