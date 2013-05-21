@@ -178,13 +178,13 @@ class SearchAndReplaceSearchResult {
 					// ATTRIBUTES
 					// 
 					} elseif($t_instance->hasElement($vs_bundle)) {
+						$t_instance->clearErrors();
 						$vn_datatype = ca_metadata_elements::getElementDatatype($vs_bundle);
 						if(in_array($vn_datatype,array(1,2,5,6,8,9,10,11,12))) {
 							$vs_original_val = $t_instance->get($va_display_item['bundle_name']);
 							
 							$vn_replacements = 0;
 							$vs_new_val = $this->doReplace($vs_original_val,$vn_replacements);
-							$this->opn_replacements += $vn_replacements;
 
 							if($vn_replacements>0){
 								$t_instance->replaceAttribute(array(
@@ -192,6 +192,11 @@ class SearchAndReplaceSearchResult {
 									$vs_bundle => $vs_new_val
 								), $vs_bundle);
 								$t_instance->update();
+
+								// only count successful replacements
+								if($t_instance->numErrors() == 0){
+									$this->opn_replacements += $vn_replacements;
+								}
 							}
 						}
 					}

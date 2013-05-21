@@ -32,7 +32,7 @@ $va_report = $this->getVar('snr_report');
 
 <div id='searchAndReplaceReport' class='rounded'>
 	<?php
-	print "<div>"._t("Successfully searched %1 records and %2 bundles for <em>'%3'</em> and replaced %4 instances with <em>'%5'</em>.",
+	print "<div>"._t("Searched %1 records and %2 bundles for <em>'%3'</em> and replaced %4 instances with <em>'%5'</em>.",
 		$va_report['records_queried'],$va_report['bundles_queried'],$va_report['search'],$va_report['replacements'],$va_report['replace'])."</div>";
 	?>
 </div>
