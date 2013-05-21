@@ -88,12 +88,8 @@ class SearchAndReplaceSearchResult {
 		}
 
 		$vs_original_val = $this->opo_original_result->get($pa_display_item['bundle_name']);
-
-		if($this->opb_not_case_sensitive){
-			$vs_replace_val = preg_replace("!".$this->ops_search."!i", $this->ops_replace, $vs_original_val);
-		} else {
-			$vs_replace_val = preg_replace("!".$this->ops_search."!", $this->ops_replace, $vs_original_val);	
-		}
+		$vn_replacements = 0;
+		$vs_replace_val = $this->doReplace($vs_original_val,$vn_replacements);
 
 		return array(
 			'original' => $vs_original_val,
@@ -143,7 +139,7 @@ class SearchAndReplaceSearchResult {
 
 					$this->opn_bundles_queried++;
 
-					$vs_pattern = "!".$this->ops_search.($this->opb_not_case_sensitive ? "!i" : "!");
+					$vs_pattern = "|".$this->ops_search.($this->opb_not_case_sensitive ? "|i" : "|");
 
 					//
 					// LABELS
@@ -153,11 +149,11 @@ class SearchAndReplaceSearchResult {
 						$vs_original_val = $t_instance->get($va_display_item['bundle_name']);
 						
 
-						if(preg_match($vs_pattern,$vs_original_val)){
-							$vn_replacements = 0;
-							$vs_new_val = preg_replace($vs_pattern, $this->ops_replace, $vs_original_val, -1, $vn_replacements);
-							$this->opn_replacements += $vn_replacements;
+						$vn_replacements = 0;
+						$vs_new_val = $this->doReplace($vs_original_val,$vn_replacements);
+						$this->opn_replacements += $vn_replacements;
 
+						if($vn_replacements>0){
 							$va_label_values = array();
 							$va_label_values[$t_instance->getLabelDisplayField()] = $vs_new_val;
 							if($vn_label_id){
@@ -169,11 +165,12 @@ class SearchAndReplaceSearchResult {
 					// 
 					} elseif($t_instance->hasField($vs_bundle)) {
 						$vs_original_val = $t_instance->get($vs_bundle);
-						if(preg_match($vs_pattern,$vs_original_val)){
-							$vn_replacements = 0;
-							$vs_new_val = preg_replace($vs_pattern, $this->ops_replace, $vs_original_val, -1, $vn_replacements);
-							$this->opn_replacements += $vn_replacements;
+						
+						$vn_replacements = 0;
+						$vs_new_val = $this->doReplace($vs_original_val,$vn_replacements);
+						$this->opn_replacements += $vn_replacements;
 
+						if($vn_replacements>0){
 							$t_instance->set($vs_bundle,$vs_new_val);
 							$t_instance->update();
 						}
@@ -184,11 +181,12 @@ class SearchAndReplaceSearchResult {
 						$vn_datatype = ca_metadata_elements::getElementDatatype($vs_bundle);
 						if(in_array($vn_datatype,array(1,2,5,6,8,9,10,11,12))) {
 							$vs_original_val = $t_instance->get($va_display_item['bundle_name']);
-							if(preg_match($vs_pattern,$vs_original_val)){
-								$vn_replacements = 0;
-								$vs_new_val = preg_replace($vs_pattern, $this->ops_replace, $vs_original_val, -1, $vn_replacements);
-								$this->opn_replacements += $vn_replacements;
+							
+							$vn_replacements = 0;
+							$vs_new_val = $this->doReplace($vs_original_val,$vn_replacements);
+							$this->opn_replacements += $vn_replacements;
 
+							if($vn_replacements>0){
 								$t_instance->replaceAttribute(array(
 									'locale_id' => $g_ui_locale_id,
 									$vs_bundle => $vs_new_val
@@ -227,6 +225,38 @@ class SearchAndReplaceSearchResult {
 	 */
 	public function __call($ps_name,$pa_args){
 		return call_user_func_array(array($this->opo_original_result, $ps_name), $pa_args);
+	}
+	# ------------------------------------------------------------------
+	protected function doReplace($ps_val,&$pn_replacements){
+		$pn_replacements = 0;
+
+		if(strlen($ps_val)<1) return "";
+		
+		// exact search
+		if(substr($this->ops_search, 0, 1) === '"' && substr($this->ops_search, -1, 1) === '"'){
+			// strip quotes
+			$vs_search = substr($this->ops_search, 1, strlen($this->ops_search)-2);
+
+			// now do as-is replace
+			if($this->opb_not_case_sensitive){
+				return str_ireplace($vs_search, $this->ops_replace, $ps_val, $pn_replacements);
+			} else {
+				return str_replace($vs_search, $this->ops_replace, $ps_val, $pn_replacements);	
+			}
+		}
+
+		// try passing through preg_replace as-is
+		$vs_pattern = "|".$this->ops_search.($this->opb_not_case_sensitive ? "|i" : "|");
+		if($vs_return = @preg_replace($vs_pattern, $this->ops_replace, $ps_val, -1, $pn_replacements)){
+			return $vs_return;
+		}
+
+		// if that fails, do simplest form of str_replace
+		if($this->opb_not_case_sensitive){
+			return str_ireplace($this->ops_search, $this->ops_replace, $ps_val, $pn_replacements);
+		} else {
+			return str_replace($this->ops_search, $this->ops_replace, $ps_val, $pn_replacements);	
+		}
 	}
 	# ------------------------------------------------------------------
 }

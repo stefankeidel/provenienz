@@ -1024,14 +1024,16 @@
  		# -------------------------------------------------------
  		public function SearchAndReplacePreview(){
  			// search expression can't be empty, redirect to index if empty
- 			if(!($vs_search = $this->request->getParameter('caReplaceSearch',pString))){
+ 			// 
+ 			// get search expression directly from $_POST to make sure we get the form value as-is, without escaping from RequestHTTP
+ 			if(!($vs_search = $_POST['caReplaceSearch'])){
  				$this->notification->addNotification(_t("You must specify a valid expression for search and replace"), __NOTIFICATION_TYPE_ERROR__);
  				$this->Index();
  				return;
  			}
 
  			// replace actually can be empty
- 			$vs_replace = $this->request->getParameter('caReplaceWith',pString);
+ 			$vs_replace = $_POST['caReplaceWith'];
 
  			// get options and set options for view
  			$vb_not_case_sensitive = ($this->request->getParameter('caReplacementCaseSensitive',pString) == "ci");
