@@ -146,9 +146,9 @@ class SearchAndReplaceSearchResult {
 					// 
 					if($vs_bundle == "preferred_labels"){
 						$vn_label_id = $t_instance->getPreferredLabelID($g_ui_locale_id);
+						
 						$vs_original_val = $t_instance->get($va_display_item['bundle_name']);
 						
-
 						$vn_replacements = 0;
 						$vs_new_val = $this->doReplace($vs_original_val,$vn_replacements);
 						$this->opn_replacements += $vn_replacements;
@@ -156,6 +156,21 @@ class SearchAndReplaceSearchResult {
 						if($vn_replacements>0){
 							$va_label_values = array();
 							$va_label_values[$t_instance->getLabelDisplayField()] = $vs_new_val;
+
+							// if label used in display is in different locale than UI, we have to find it to make sure we
+							// actually replace what we've shown in preview (which comes straight out of get())
+							if(!$vn_label_id){
+								$va_labels = $t_instance->getPreferredLabels();
+
+								$va_user_labels = caExtractValuesByUserLocale($va_labels);
+
+								foreach($va_user_labels as $va_label_list) {
+									foreach($va_label_list as $va_label) {
+										$vn_label_id = $va_label['label_id'];
+									}
+								}
+							}
+
 							if($vn_label_id){
 								$t_instance->editLabel($vn_label_id, $va_label_values, $g_ui_locale_id, null, true);
 							}
