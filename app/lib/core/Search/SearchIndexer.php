@@ -261,7 +261,7 @@ class SearchIndexer extends SearchBase {
 			'file_locking' => true,				/* cache corruption avoidance */
 			'read_control' => false,			/* no read control */
 			'file_name_prefix' => 'ca_cache',	/* prefix of cache files */
-			'cache_file_umask' => 0700			/* permissions of cache files */
+			'cache_file_perm' => 0700			/* permissions of cache files */
 		);
 		
 		try {
@@ -413,9 +413,10 @@ class SearchIndexer extends SearchBase {
 									
 									if (sizeof($va_attributes)) { 
 										foreach($va_attributes as $vo_attribute) {
+											/* index each element of the container */
 											foreach($vo_attribute->getValues() as $vo_value) {
-												$vn_list_id = $this->_getElementListID($vo_value->getElementID());
-												$this->opo_engine->indexField($pn_subject_tablenum, 'A'.$vo_value->getElementID(), $vo_attribute->getAttributeID(), $vo_value->getDisplayValue($vn_list_id), $va_data);	// 4 = ca_attributes
+												$vn_list_id = $this->_getElementListID($vo_value->getElementID());											
+												$this->opo_engine->indexField($pn_subject_tablenum, "A".$vo_value->getElementID(), $vo_attribute->getAttributeID(), $vo_value->getDisplayValue($vn_list_id), $va_data);																																															
 											}
 										}
 									} else {
@@ -481,6 +482,13 @@ class SearchIndexer extends SearchBase {
 						} else {
 							// plain old field
 							if ($vb_can_do_incremental_indexing && (!$pb_reindex_mode) && (!isset($pa_changed_fields[$vs_field])) && ($vs_field != $t_subject->primaryKey()) ) {	// skip unchanged
+								continue;
+							}
+						
+							// specialized identifier (idno) processing; used IDNumbering plugin to generate searchable permutations of identifier
+							if (((isset($va_data['INDEX_AS_IDNO']) && $va_data['INDEX_AS_IDNO']) || in_array('INDEX_AS_IDNO', $va_data)) && method_exists($t_subject, "getIDNoPlugInInstance") && ($o_idno = $t_subject->getIDNoPlugInInstance())) {
+								$va_values = $o_idno->getIndexValues($pa_field_data[$vs_field]);
+								$this->opo_engine->indexField($pn_subject_tablenum, $vs_field, $pn_subject_row_id, join(" ", $va_values), $va_data);
 								continue;
 							}
 							
