@@ -43,8 +43,6 @@
  				return;
  			}
  			
- 			AssetLoadManager::register('objectcheckin');
- 			
  			$this->opo_app_plugin_manager = new ApplicationPluginManager();
  		}
  		# -------------------------------------------------------

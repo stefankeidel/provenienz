@@ -16,7 +16,8 @@
   ],
   "dependencies": {
     "jquery": "~1.10.2",
-    "jqueryui": "~1.9.2"
+    "jqueryui": "~1.9.2",
+	"quantities": "./assets/misc/quantities.js"
   },
   "stash": {
 	"handsontable": "~0.10.4",

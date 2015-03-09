@@ -83,7 +83,6 @@
  		# -------------------------------------------------------
  		public function Index($pa_options=null) {
  			AssetLoadManager::register('imageScroller');
- 			AssetLoadManager::register('tabUI');
  			AssetLoadManager::register('panel');
  			
  			parent::Index($pa_options);

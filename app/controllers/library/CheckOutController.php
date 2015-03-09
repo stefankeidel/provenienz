@@ -41,8 +41,6 @@
  				return;
  			}
  			
- 			AssetLoadManager::register('objectcheckout');
- 			
  			$this->opo_app_plugin_manager = new ApplicationPluginManager();
  		}
  		# -------------------------------------------------------

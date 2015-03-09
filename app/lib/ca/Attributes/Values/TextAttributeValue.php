@@ -328,8 +328,6 @@
  			);
  			
  			if ($va_settings['isDependentValue']) {
- 				AssetLoadManager::register('displayTemplateParser');
- 				
  				$t_element = new ca_metadata_elements($pa_element_info['element_id']);
  				$va_elements = $t_element->getElementsInSet($t_element->getHierarchyRootID());
  				

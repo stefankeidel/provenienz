@@ -161,6 +161,8 @@
 						}
 					}
 					return $vs_loaded_ok;
+				} else {
+					Debug::msg('[AssetLoadManager] tried to add non-existing loadSet "'.$ps_package.'"');
 				}
 			}
 			return false;

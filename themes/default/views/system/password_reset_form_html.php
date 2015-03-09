@@ -36,10 +36,15 @@ $vs_username = $this->getVar('username');
 	<meta http-equiv="content-type" content="text/html; charset=utf-8" />
 
 	<link href="<?php print $this->request->getThemeUrlPath(); ?>/css/login.css" rel="stylesheet" type="text/css" />
+	<!-- load combined and minimized assets -->
+	<script type="text/javascript" src="<?php print $this->request->getBaseUrlPath(); ?>/assets/bower.combined.min.js" ></script>
+	<link href="<?php print $this->request->getBaseUrlPath(); ?>/assets/bower.combined.css" rel="stylesheet" type="text/css" />
+	<!-- end load combined and minimized assets -->
 	<?php
 	print AssetLoadManager::getLoadHTML($this->request);
 	?>
 
+	<script type="text/javascript" src="<?php print $this->request->getBaseUrlPath(); ?>/assets/ca.combined.min.js" ></script>
 	<script type="text/javascript">
 		// initialize CA Utils
 		jQuery(document).ready(function() { caUI.utils.disableUnsavedChangesWarning(true); });

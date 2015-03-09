@@ -46,11 +46,10 @@
 		<link rel="stylesheet" href="<?php print $this->request->getThemeUrlPath(); ?>/css/base.css" type="text/css" media="screen" />
 		<link rel="stylesheet" href="<?php print $this->request->getThemeUrlPath(); ?>/css/sets.css" type="text/css" media="screen" />
 
-		<!-- test load minimized assets -->
-		<script type="text/javascript" src="<?php print $this->request->getBaseUrlPath(); ?>/assets/bower.combined.js" ></script>
-<?php	if(file_exists($this->request->getBaseUrlPath() . '/assets/bower.combined.css')) { ?>
+		<!-- load combined and minimized assets -->
+		<script type="text/javascript" src="<?php print $this->request->getBaseUrlPath(); ?>/assets/bower.combined.min.js" ></script>
 		<link href="<?php print $this->request->getBaseUrlPath(); ?>/assets/bower.combined.css" rel="stylesheet" type="text/css" />
-<?php	} ?>
+		<!-- end load combined and minimized assets -->
 
 		<script type="text/javascript">window.caBasePath = '<?php print $this->request->getBaseUrlPath(); ?>';</script>
 		<!--[if (!IE)|(gte IE 8)]><!-->
@@ -75,6 +74,9 @@
 		print '<link rel="stylesheet" href="'.$this->request->getThemeUrlPath().'/css/local.css" type="text/css" media="screen" />
 ';
 	}
+?>
+		<script type="text/javascript" src="<?php print $this->request->getBaseUrlPath(); ?>/assets/ca.combined.min.js" ></script>
+<?php
 	
 	//
 	// Pull in JS and CSS for debug bar

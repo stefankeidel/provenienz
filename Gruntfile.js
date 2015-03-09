@@ -21,7 +21,7 @@ module.exports = function(grunt) {
 		},
 		uglify: {
 			options: {
-				banner: '/*! <%= pkg.name %> <%= grunt.template.today("yyyy-mm-dd") %> */\n',
+				banner: '/*! CollectiveAccess Providence <%= grunt.template.today("yyyy-mm-dd") %> */\n',
 				compress: {
 					dead_code     : false	// discard unreachable code
 				}

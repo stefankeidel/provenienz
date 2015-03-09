@@ -27,7 +27,6 @@
  */
  
 	AssetLoadManager::register('hierBrowser');
-	AssetLoadManager::register('tabUI');
 	
 	$t_subject 			= $this->getVar('t_subject');
 	$pa_ancestors 		= $this->getVar('ancestors');
