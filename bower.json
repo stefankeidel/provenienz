@@ -1,0 +1,32 @@
+{
+  "name": "providence",
+  "version": "1.5.0",
+  "homepage": "https://github.com/collectiveaccess/providence",
+  "authors": [],
+  "description": "Providence is the “back-end” cataloging component of CollectiveAccess, a web-based suite of applications providing a framework for management, description, and discovery of complex digital and physical collections.",
+  "main": "index.php",
+  "license": "GPL-3.0",
+  "private": true,
+  "ignore": [
+    "**/.*",
+    "node_modules",
+    "bower_components",
+    "test",
+    "tests"
+  ],
+  "dependencies": {
+    "jquery": "~1.10.2",
+    "jqueryui": "~1.9.2"
+  },
+  "stash": {
+	"handsontable": "~0.10.4",
+	"fullcalendar": "~2.0.0",
+	"circular-slider": "~1.0.3",
+	"jquery-tokeninput": "~1.7.0",
+	"jquery-hoverIntent": "~1.8.1",
+	"jquery-migrate": "1.1.1",
+	"jquery.autogrowtextarea": "*",
+	"blockui": "*",
+	"jquery-cookie": "~1.4.1"
+  }
+}

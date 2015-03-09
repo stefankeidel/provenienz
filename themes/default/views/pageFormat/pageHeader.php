@@ -46,6 +46,12 @@
 		<link rel="stylesheet" href="<?php print $this->request->getThemeUrlPath(); ?>/css/base.css" type="text/css" media="screen" />
 		<link rel="stylesheet" href="<?php print $this->request->getThemeUrlPath(); ?>/css/sets.css" type="text/css" media="screen" />
 
+		<!-- test load minimized assets -->
+		<script type="text/javascript" src="<?php print $this->request->getBaseUrlPath(); ?>/assets/bower.combined.js" ></script>
+<?php	if(file_exists($this->request->getBaseUrlPath() . '/assets/bower.combined.css')) { ?>
+		<link href="<?php print $this->request->getBaseUrlPath(); ?>/assets/bower.combined.css" rel="stylesheet" type="text/css" />
+<?php	} ?>
+
 		<script type="text/javascript">window.caBasePath = '<?php print $this->request->getBaseUrlPath(); ?>';</script>
 		<!--[if (!IE)|(gte IE 8)]><!-->
 		<link href="<?php print $this->request->getBaseUrlPath(); ?>/assets/DV/viewer-datauri.css" media="screen" rel="stylesheet" type="text/css" />
