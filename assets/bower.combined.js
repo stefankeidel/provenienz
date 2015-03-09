@@ -9788,6 +9788,1371 @@ if ( typeof module === "object" && module && typeof module.exports === "object" 
 
 })( window );
 
+/**
+ * jGrowl 1.3.0
+ *
+ * Dual licensed under the MIT (http://www.opensource.org/licenses/mit-license.php)
+ * and GPL (http://www.opensource.org/licenses/gpl-license.php) licenses.
+ *
+ * Written by Stan Lemon <stosh1985@gmail.com>
+ * Last updated: 2014.04.18
+ *
+ * jGrowl is a jQuery plugin implementing unobtrusive userland notifications.  These
+ * notifications function similarly to the Growl Framework available for
+ * Mac OS X (http://growl.info).
+ *
+ * To Do:
+ * - Move library settings to containers and allow them to be changed per container
+ *
+ * Changes in 1.3.0
+ * - Added non-vendor border-radius to stylesheet
+ * - Added grunt for generating minified js and css
+ * - Added npm package info
+ * - Added bower package info
+ * - Updates for jshint
+ *
+ * Changes in 1.2.13
+ * - Fixed clearing interval when the container shuts down
+ *
+ * Changes in 1.2.12
+ * - Added compressed versions using UglifyJS and Sqwish
+ * - Improved README with configuration options explanation
+ * - Added a source map
+ *
+ * Changes in 1.2.11
+ * - Fix artifacts left behind by the shutdown method and text-cleanup
+ *
+ * Changes in 1.2.10
+ * - Fix beforeClose to be called in click event
+ *
+ * Changes in 1.2.9
+ * - Fixed BC break in jQuery 2.0 beta
+ *
+ * Changes in 1.2.8
+ * - Fixes for jQuery 1.9 and the MSIE6 check, note that with jQuery 2.0 support
+ *   jGrowl intends to drop support for IE6 altogether
+ *
+ * Changes in 1.2.6
+ * - Fixed js error when a notification is opening and closing at the same time
+ *
+ * Changes in 1.2.5
+ * - Changed wrapper jGrowl's options usage to "o" instead of $.jGrowl.defaults
+ * - Added themeState option to control 'highlight' or 'error' for jQuery UI
+ * - Ammended some CSS to provide default positioning for nested usage.
+ * - Changed some CSS to be prefixed with jGrowl- to prevent namespacing issues
+ * - Added two new options - openDuration and closeDuration to allow
+ *   better control of notification open and close speeds, respectively
+ *   Patch contributed by Jesse Vincet.
+ * - Added afterOpen callback.  Patch contributed by Russel Branca.
+ *
+ * Changes in 1.2.4
+ * - Fixed IE bug with the close-all button
+ * - Fixed IE bug with the filter CSS attribute (special thanks to gotwic)
+ * - Update IE opacity CSS
+ * - Changed font sizes to use "em", and only set the base style
+ *
+ * Changes in 1.2.3
+ * - The callbacks no longer use the container as context, instead they use the actual notification
+ * - The callbacks now receive the container as a parameter after the options parameter
+ * - beforeOpen and beforeClose now check the return value, if it's false - the notification does
+ *   not continue.  The open callback will also halt execution if it returns false.
+ * - Fixed bug where containers would get confused
+ * - Expanded the pause functionality to pause an entire container.
+ *
+ * Changes in 1.2.2
+ * - Notification can now be theme rolled for jQuery UI, special thanks to Jeff Chan!
+ *
+ * Changes in 1.2.1
+ * - Fixed instance where the interval would fire the close method multiple times.
+ * - Added CSS to hide from print media
+ * - Fixed issue with closer button when div { position: relative } is set
+ * - Fixed leaking issue with multiple containers.  Special thanks to Matthew Hanlon!
+ *
+ * Changes in 1.2.0
+ * - Added message pooling to limit the number of messages appearing at a given time.
+ * - Closing a notification is now bound to the notification object and triggered by the close button.
+ *
+ * Changes in 1.1.2
+ * - Added iPhone styled example
+ * - Fixed possible IE7 bug when determining if the ie6 class shoudl be applied.
+ * - Added template for the close button, so that it's content could be customized.
+ *
+ * Changes in 1.1.1
+ * - Fixed CSS styling bug for ie6 caused by a mispelling
+ * - Changes height restriction on default notifications to min-height
+ * - Added skinned examples using a variety of images
+ * - Added the ability to customize the content of the [close all] box
+ * - Added jTweet, an example of using jGrowl + Twitter
+ *
+ * Changes in 1.1.0
+ * - Multiple container and instances.
+ * - Standard $.jGrowl() now wraps $.fn.jGrowl() by first establishing a generic jGrowl container.
+ * - Instance methods of a jGrowl container can be called by $.fn.jGrowl(methodName)
+ * - Added glue preferenced, which allows notifications to be inserted before or after nodes in the container
+ * - Added new log callback which is called before anything is done for the notification
+ * - Corner's attribute are now applied on an individual notification basis.
+ *
+ * Changes in 1.0.4
+ * - Various CSS fixes so that jGrowl renders correctly in IE6.
+ *
+ * Changes in 1.0.3
+ * - Fixed bug with options persisting across notifications
+ * - Fixed theme application bug
+ * - Simplified some selectors and manipulations.
+ * - Added beforeOpen and beforeClose callbacks
+ * - Reorganized some lines of code to be more readable
+ * - Removed unnecessary this.defaults context
+ * - If corners plugin is present, it's now customizable.
+ * - Customizable open animation.
+ * - Customizable close animation.
+ * - Customizable animation easing.
+ * - Added customizable positioning (top-left, top-right, bottom-left, bottom-right, center)
+ *
+ * Changes in 1.0.2
+ * - All CSS styling is now external.
+ * - Added a theme parameter which specifies a secondary class for styling, such
+ *   that notifications can be customized in appearance on a per message basis.
+ * - Notification life span is now customizable on a per message basis.
+ * - Added the ability to disable the global closer, enabled by default.
+ * - Added callbacks for when a notification is opened or closed.
+ * - Added callback for the global closer.
+ * - Customizable animation speed.
+ * - jGrowl now set itself up and tears itself down.
+ *
+ * Changes in 1.0.1:
+ * - Removed dependency on metadata plugin in favor of .data()
+ * - Namespaced all events
+ */
+(function($) {
+	/** Compatibility holdover for 1.9 to check IE6 **/
+	var $ie6 = (function(){
+		return false === $.support.boxModel && $.support.objectAll && $.support.leadingWhitespace;
+	})();
+
+	/** jGrowl Wrapper - Establish a base jGrowl Container for compatibility with older releases. **/
+	$.jGrowl = function( m , o ) {
+		// To maintain compatibility with older version that only supported one instance we'll create the base container.
+		if ( $('#jGrowl').size() === 0 )
+			$('<div id="jGrowl"></div>').addClass( (o && o.position) ? o.position : $.jGrowl.defaults.position ).appendTo('body');
+
+		// Create a notification on the container.
+		$('#jGrowl').jGrowl(m,o);
+	};
+
+
+	/** Raise jGrowl Notification on a jGrowl Container **/
+	$.fn.jGrowl = function( m , o ) {
+		if ( $.isFunction(this.each) ) {
+			var args = arguments;
+
+			return this.each(function() {
+				/** Create a jGrowl Instance on the Container if it does not exist **/
+				if ( $(this).data('jGrowl.instance') === undefined ) {
+					$(this).data('jGrowl.instance', $.extend( new $.fn.jGrowl(), { notifications: [], element: null, interval: null } ));
+					$(this).data('jGrowl.instance').startup( this );
+				}
+
+				/** Optionally call jGrowl instance methods, or just raise a normal notification **/
+				if ( $.isFunction($(this).data('jGrowl.instance')[m]) ) {
+					$(this).data('jGrowl.instance')[m].apply( $(this).data('jGrowl.instance') , $.makeArray(args).slice(1) );
+				} else {
+					$(this).data('jGrowl.instance').create( m , o );
+				}
+			});
+		}
+	};
+
+	$.extend( $.fn.jGrowl.prototype , {
+
+		/** Default JGrowl Settings **/
+		defaults: {
+			pool:				0,
+			header:				'',
+			group:				'',
+			sticky:				false,
+			position:			'top-right',
+			glue:				'after',
+			theme:				'default',
+			themeState:			'highlight',
+			corners:			'10px',
+			check:				250,
+			life:				3000,
+			closeDuration:		'normal',
+			openDuration:		'normal',
+			easing:				'swing',
+			closer:				true,
+			closeTemplate:		'&times;',
+			closerTemplate:		'<div>[ close all ]</div>',
+			log:				function() {},
+			beforeOpen:			function() {},
+			afterOpen:			function() {},
+			open:				function() {},
+			beforeClose:		function() {},
+			close:				function() {},
+			animateOpen:		{
+				opacity:		'show'
+			},
+			animateClose:		{
+				opacity:		'hide'
+			}
+		},
+
+		notifications: [],
+
+		/** jGrowl Container Node **/
+		element:				null,
+
+		/** Interval Function **/
+		interval:				null,
+
+		/** Create a Notification **/
+		create: function( message , options ) {
+			var o = $.extend({}, this.defaults, options);
+
+			/* To keep backward compatibility with 1.24 and earlier, honor 'speed' if the user has set it */
+			if (typeof o.speed !== 'undefined') {
+				o.openDuration = o.speed;
+				o.closeDuration = o.speed;
+			}
+
+			this.notifications.push({ message: message , options: o });
+
+			o.log.apply( this.element , [this.element,message,o] );
+		},
+
+		render: function( n ) {
+			var self = this;
+			var message = n.message;
+			var o = n.options;
+
+			// Support for jQuery theme-states, if this is not used it displays a widget header
+			o.themeState = (o.themeState === '') ? '' : 'ui-state-' + o.themeState;
+
+			var notification = $('<div/>')
+				.addClass('jGrowl-notification ' + o.themeState + ' ui-corner-all' + ((o.group !== undefined && o.group !== '') ? ' ' + o.group : ''))
+				.append($('<div/>').addClass('jGrowl-close').html(o.closeTemplate))
+				.append($('<div/>').addClass('jGrowl-header').html(o.header))
+				.append($('<div/>').addClass('jGrowl-message').html(message))
+				.data("jGrowl", o).addClass(o.theme).children('div.jGrowl-close').bind("click.jGrowl", function() {
+					$(this).parent().trigger('jGrowl.beforeClose');
+				})
+				.parent();
+
+
+			/** Notification Actions **/
+			$(notification).bind("mouseover.jGrowl", function() {
+				$('div.jGrowl-notification', self.element).data("jGrowl.pause", true);
+			}).bind("mouseout.jGrowl", function() {
+				$('div.jGrowl-notification', self.element).data("jGrowl.pause", false);
+			}).bind('jGrowl.beforeOpen', function() {
+				if ( o.beforeOpen.apply( notification , [notification,message,o,self.element] ) !== false ) {
+					$(this).trigger('jGrowl.open');
+				}
+			}).bind('jGrowl.open', function() {
+				if ( o.open.apply( notification , [notification,message,o,self.element] ) !== false ) {
+					if ( o.glue == 'after' ) {
+						$('div.jGrowl-notification:last', self.element).after(notification);
+					} else {
+						$('div.jGrowl-notification:first', self.element).before(notification);
+					}
+
+					$(this).animate(o.animateOpen, o.openDuration, o.easing, function() {
+						// Fixes some anti-aliasing issues with IE filters.
+						if ($.support.opacity === false)
+							this.style.removeAttribute('filter');
+
+						if ( $(this).data("jGrowl") !== null ) // Happens when a notification is closing before it's open.
+							$(this).data("jGrowl").created = new Date();
+
+						$(this).trigger('jGrowl.afterOpen');
+					});
+				}
+			}).bind('jGrowl.afterOpen', function() {
+				o.afterOpen.apply( notification , [notification,message,o,self.element] );
+			}).bind('jGrowl.beforeClose', function() {
+				if ( o.beforeClose.apply( notification , [notification,message,o,self.element] ) !== false )
+					$(this).trigger('jGrowl.close');
+			}).bind('jGrowl.close', function() {
+				// Pause the notification, lest during the course of animation another close event gets called.
+				$(this).data('jGrowl.pause', true);
+				$(this).animate(o.animateClose, o.closeDuration, o.easing, function() {
+					if ( $.isFunction(o.close) ) {
+						if ( o.close.apply( notification , [notification,message,o,self.element] ) !== false )
+							$(this).remove();
+					} else {
+						$(this).remove();
+					}
+				});
+			}).trigger('jGrowl.beforeOpen');
+
+			/** Optional Corners Plugin **/
+			if ( o.corners !== '' && $.fn.corner !== undefined ) $(notification).corner( o.corners );
+
+			/** Add a Global Closer if more than one notification exists **/
+			if ($('div.jGrowl-notification:parent', self.element).size() > 1 &&
+				$('div.jGrowl-closer', self.element).size() === 0 && this.defaults.closer !== false ) {
+				$(this.defaults.closerTemplate).addClass('jGrowl-closer ' + this.defaults.themeState + ' ui-corner-all').addClass(this.defaults.theme)
+					.appendTo(self.element).animate(this.defaults.animateOpen, this.defaults.speed, this.defaults.easing)
+					.bind("click.jGrowl", function() {
+						$(this).siblings().trigger("jGrowl.beforeClose");
+
+						if ( $.isFunction( self.defaults.closer ) ) {
+							self.defaults.closer.apply( $(this).parent()[0] , [$(this).parent()[0]] );
+						}
+					});
+			}
+		},
+
+		/** Update the jGrowl Container, removing old jGrowl notifications **/
+		update: function() {
+			$(this.element).find('div.jGrowl-notification:parent').each( function() {
+				if ($(this).data("jGrowl") !== undefined && $(this).data("jGrowl").created !== undefined &&
+					($(this).data("jGrowl").created.getTime() + parseInt($(this).data("jGrowl").life, 10))  < (new Date()).getTime() &&
+					$(this).data("jGrowl").sticky !== true &&
+					($(this).data("jGrowl.pause") === undefined || $(this).data("jGrowl.pause") !== true) ) {
+
+					// Pause the notification, lest during the course of animation another close event gets called.
+					$(this).trigger('jGrowl.beforeClose');
+				}
+			});
+
+			if (this.notifications.length > 0 &&
+				(this.defaults.pool === 0 || $(this.element).find('div.jGrowl-notification:parent').size() < this.defaults.pool) )
+				this.render( this.notifications.shift() );
+
+			if ($(this.element).find('div.jGrowl-notification:parent').size() < 2 ) {
+				$(this.element).find('div.jGrowl-closer').animate(this.defaults.animateClose, this.defaults.speed, this.defaults.easing, function() {
+					$(this).remove();
+				});
+			}
+		},
+
+		/** Setup the jGrowl Notification Container **/
+		startup: function(e) {
+			this.element = $(e).addClass('jGrowl').append('<div class="jGrowl-notification"></div>');
+			this.interval = setInterval( function() {
+				$(e).data('jGrowl.instance').update();
+			}, parseInt(this.defaults.check, 10));
+
+			if ($ie6) {
+				$(this.element).addClass('ie6');
+			}
+		},
+
+		/** Shutdown jGrowl, removing it and clearing the interval **/
+		shutdown: function() {
+			$(this.element).removeClass('jGrowl')
+				.find('div.jGrowl-notification').trigger('jGrowl.close')
+				.parent().empty()
+			;
+
+			clearInterval(this.interval);
+		},
+
+		close: function() {
+			$(this.element).find('div.jGrowl-notification').each(function(){
+				$(this).trigger('jGrowl.beforeClose');
+			});
+		}
+	});
+
+	/** Reference the Defaults Object for compatibility with older versions of jGrowl **/
+	$.jGrowl.defaults = $.fn.jGrowl.prototype.defaults;
+
+})(jQuery);
+/**
+ * jQuery Extended Cookie Plugin
+ *
+ * Author: Frederick Giasson
+ * 
+ * Copyright (c) 2012 Structured Dynamics LLC 
+ * Dual licensed under the MIT and GPL licenses:
+ * http://www.opensource.org/licenses/mit-license.php
+ * http://www.gnu.org/licenses/gpl.html
+ *
+ */
+
+jQuery.cookie = function (key, value, options) {
+  
+  // Check if localStorage of HTML5 exists in this browser
+  var isStorageAvailable = false;
+  if ("localStorage" in window)
+  {
+    try {
+      window.localStorage.setItem("isStorageAvailable", "true");
+      isStorageAvailable = true;
+      window.localStorage.removeItem("isStorageAvailable", "true");
+    } catch (PrivateBrowsingError) {
+      // iOS Private Browsing mode will throw a "QUOTA_EXCEEDED_ERRROR DOM Exception 22" error
+    }
+  }
+  
+  // Check if the user wants to create or delete a cookie.
+  if (arguments.length > 1 && String(value) !== "[object Object]") 
+  {
+    options = jQuery.extend({}, options);
+    
+    // Set the default value of the maxChunkSize option if it is not yet defined.
+    if(options.maxChunkSize == undefined)
+    {
+      options.maxChunkSize = 3000;
+    }
+    
+    // Set the default value of the maxNumberOfCookies option if it is not yet defined.
+    if(options.maxNumberOfCookies == undefined)
+    {
+      options.maxNumberOfCookies = 20;
+    }
+    
+    // Set the usage of the local storage to true by default
+    if(options.useLocalStorage == undefined)
+    {
+      options.useLocalStorage = true;
+    }    
+    
+    // Check if the user tries to delete the cookie
+    if(value === null || value === undefined)
+    {
+      // If the localStorage is available, and if the user requested its usage, then we first
+      // try to delete it from that place
+      if(options.useLocalStorage && isStorageAvailable != false)
+      {
+        localStorage.removeItem(key);
+      }
+      
+      // Even if the localStora was used, we try to remove some possible old cookies
+      // Delete all possible chunks for that cookie
+      for(var i = 0; i < options.maxNumberOfCookies; i++)
+      {
+        if(i == 0)
+        {
+          // The first chunk doesn't have the chunk indicator "---"
+          var exists = $.chunkedcookie(key);
+        }
+        else
+        {
+          var exists = $.chunkedcookie(key + "---" + i);
+        }
+        
+        if(exists != null)
+        {
+          $.chunkedcookie(key + "---" + i, null, options);
+        }
+        else
+        {
+          break;
+        }
+      }    
+    }  
+    else
+    {
+      // If the localStorage is available, and if the user requested its usage, 
+      // then we create that value in the localStorage of the browser (and not in a cookie)
+      if(options.useLocalStorage && isStorageAvailable != false)
+      {
+        localStorage.setItem(key, value);
+      }
+      else
+      {
+        // The user tries to create a new cookie
+        
+        // Chunk the input content
+        var exp = new RegExp(".{1,"+options.maxChunkSize+"}","g");
+
+        if(value.match != undefined)
+        {
+          var chunks = value.match(exp);
+          
+          // Create one cookie per chunk
+          for(var i = 0; i < chunks.length; i++)
+          {
+            if(i == 0)
+            {
+              $.chunkedcookie(key, chunks[i], options);
+            }
+            else
+            {
+              $.chunkedcookie(key + "---" + i, chunks[i], options);
+            }
+          }       
+        }
+        else
+        {
+          // The value is probably a number, so we add it to a single cookie
+          $.chunkedcookie(key, value, options); 
+        }      
+      }      
+    }
+    
+    return(null);
+  }
+
+  // Check if options have been given for a cookie retreival operation  
+  if(options == undefined) 
+  {
+    var options;
+    
+    if(arguments.length > 1 && String(value) === "[object Object]")
+    {
+      options = value;
+    }
+    else
+    {
+      options = {};
+    }
+    
+    if(options.maxNumberOfCookies == undefined)
+    {
+      options.maxNumberOfCookies = 20;
+    }    
+    
+    if(options.useLocalStorage == undefined)
+    {
+      options.useLocalStorage = true;
+    }    
+  }
+
+  // If localStorage is available, we first check if there exists a value for that name.
+  // If no value exists in the localStorage, then we continue by checking in the cookies
+  // This second checkup is needed in case that a cookie has been created in the past, 
+  // using the old cookie jQuery plugin.
+  if(isStorageAvailable != false)
+  {
+    var value = localStorage.getItem(key);
+    
+    if(value != undefined && value != null)
+    {
+      return(value); 
+    }    
+  }
+
+  var value = "";
+  
+  // The user tries to get the value of a cookie
+  for(var i = 0; i < options.maxNumberOfCookies; i++)
+  {
+    // Check if the next chunk exists in the browser
+    if(i == 0)
+    {
+      var val = $.chunkedcookie(key);  
+    }
+    else
+    {
+      var val = $.chunkedcookie(key + "---" + i);
+    }
+    
+    // Append the value
+    if(val != null)
+    {
+      value += val;
+    }
+    else
+    {
+      // If the value is null, and we are looking at the first chunk, then
+      // it means that the cookie simply doesn't exist
+      if(i == 0)
+      {
+        return(null);
+      }
+      
+      break;
+    }
+  } 
+  
+  // Return the entire content from all the cookies that may have been used for that value.
+  return(value);  
+};
+
+/**
+ * The chunkedcookie function comes from the jQuery Cookie plugin available here:
+ * 
+ *   https://github.com/carhartl/jquery-cookie
+ *
+ * Copyright (c) 2010 Klaus Hartl (stilbuero.de)
+ * Dual licensed under the MIT and GPL licenses:
+ * http://www.opensource.org/licenses/mit-license.php
+ * http://www.gnu.org/licenses/gpl.html
+ *
+ */
+jQuery.chunkedcookie = function (key, value, options) {
+
+    // key and at least value given, set cookie...
+    if (arguments.length > 1 && String(value) !== "[object Object]") {
+        options = jQuery.extend({}, options);
+
+        if (value === null || value === undefined) {
+            options.expires = -1;
+        }
+
+        if (typeof options.expires === 'number') {
+            var days = options.expires, t = options.expires = new Date();
+            t.setDate(t.getDate() + days);
+        }
+
+        value = String(value);
+
+        return (document.cookie = [
+            encodeURIComponent(key), '=',
+            options.raw ? value : encodeURIComponent(value),
+            options.expires ? '; expires=' + options.expires.toUTCString() : '', // use expires attribute, max-age is not supported by IE
+            options.path ? '; path=' + options.path : '',
+            options.domain ? '; domain=' + options.domain : '',
+            options.secure ? '; secure' : ''
+        ].join(''));
+    }
+
+    // key and possibly options given, get cookie...
+    options = value || {};
+    var result, decode = options.raw ? function (s) { return s; } : decodeURIComponent;
+    return (result = new RegExp('(?:^|; )' + encodeURIComponent(key) + '=([^;]*)').exec(document.cookie)) ? decode(result[1]) : null;
+};
+/**
+ * .cookieJar - Cookie Jar Plugin
+ *
+ * Version: 1.0.1
+ * Updated: 2007-08-14
+ *
+ * Used to store objects, arrays or multiple values in one cookie, under one name
+ *
+ * Copyright (c) 2007 James Dempster (letssurf@gmail.com, http://www.jdempster.com/category/jquery/cookieJar/)
+ *
+ * Dual licensed under the MIT (MIT-LICENSE.txt)
+ * and GPL (GPL-LICENSE.txt) licenses.
+ **/
+
+/**
+ * Requirements:
+ * - jQuery (John Resig, http://www.jquery.com/)
+ * - cookie (Klaus Hartl, http://www.stilbuero.de/2006/09/17/cookie-plugin-for-jquery/)
+ * - toJSON (Mark Gibson, http://jollytoad.googlepages.com/json.js)
+ **/
+eval(function(p,a,c,k,e,d){e=function(c){return(c<a?"":e(parseInt(c/a)))+((c=c%a)>35?String.fromCharCode(c+29):c.toString(36))};if(!''.replace(/^/,String)){while(c--)d[e(c)]=k[c]||e(c);k=[function(e){return d[e]}];e=function(){return'\\w+'};c=1;};while(c--)if(k[c])p=p.replace(new RegExp('\\b'+e(c)+'\\b','g'),k[c]);return p;}('(4($){$.F=4(3,1){2(!$.p)5 g;2(!$.d)5 g;2(!$.a)5 g;5 o 4(){4 7(s){2(f l!=\'m\'&&f l.7!=\'m\'){l.7(\'H:\'+0.e+\' \'+s)}n{C(s)}};4 b(){2(0.1.8)7(\'b \'+$.d(0.6));5 $.a(0.e,$.d(0.6),0.1.a)};4 c(){z h=$.a(0.e);2(f h==\'D\'){2(0.1.8)7(\'c \'+h);0.6=$.p(h,v)}n{2(0.1.8)7(\'c o\');0.6={};b()}}9.t=4(3,k){2(0.1.8)7(\'t \'+3+\' = \'+k);0.6[3]=k;5 b()};9.r=4(3){2(!0.1.w){c()}2(0.1.8)7(\'r \'+3+\' = \'+0.6[3]);5 0.6[3]};9.q=4(3){2(0.1.8)7(\'q \'+3);2(f 3!=\'m\'){E(0.6[3])}n{0.j({})}5 b()};9.j=4(i){2(f i==\'i\'){2(0.1.8)7(\'j\');0.6=i;5 b()}};9.u=4(){2(0.1.8)7(\'u\');5 0.6};9.B=4(){2(0.1.8)7(\'B = \'+$.d(0.6));5 $.d(0.6)};9.A=4(){2(0.1.8)7(\'A\');0.6={};5 $.a(0.e,N,0.1.a)};9.y=4(3,1){0.1=$.I({a:{J:M,K:\'/\'},w:v,x:\'L\',8:g},1);0.e=0.1.x+3;c();5 0};z 0=9;0.y(3,1)}}})(G);',50,50,'self|options|if|name|function|return|cookieObject|log|debug|this|cookie|save|load|toJSON|cookieName|typeof|false|cookieJSON|object|setFromObject|value|console|undefined|else|new|parseJSON|remove|get||set|toObject|true|cacheCookie|cookiePrefix|construct|var|destroy|toString|alert|string|delete|cookieJar|jQuery|cookiejar|extend|expires|path|jqCookieJar_|365|null'.split('|'),0,{}));
+
+/*!
+ * hoverIntent v1.8.1 // 2014.08.11 // jQuery v1.9.1+
+ * http://cherne.net/brian/resources/jquery.hoverIntent.html
+ *
+ * You may use hoverIntent under the terms of the MIT license. Basically that
+ * means you are free to use hoverIntent as long as this header is left intact.
+ * Copyright 2007, 2014 Brian Cherne
+ */
+ 
+/* hoverIntent is similar to jQuery's built-in "hover" method except that
+ * instead of firing the handlerIn function immediately, hoverIntent checks
+ * to see if the user's mouse has slowed down (beneath the sensitivity
+ * threshold) before firing the event. The handlerOut function is only
+ * called after a matching handlerIn.
+ *
+ * // basic usage ... just like .hover()
+ * .hoverIntent( handlerIn, handlerOut )
+ * .hoverIntent( handlerInOut )
+ *
+ * // basic usage ... with event delegation!
+ * .hoverIntent( handlerIn, handlerOut, selector )
+ * .hoverIntent( handlerInOut, selector )
+ *
+ * // using a basic configuration object
+ * .hoverIntent( config )
+ *
+ * @param  handlerIn   function OR configuration object
+ * @param  handlerOut  function OR selector for delegation OR undefined
+ * @param  selector    selector OR undefined
+ * @author Brian Cherne <brian(at)cherne(dot)net>
+ */
+(function($) {
+    $.fn.hoverIntent = function(handlerIn,handlerOut,selector) {
+
+        // default configuration values
+        var cfg = {
+            interval: 100,
+            sensitivity: 6,
+            timeout: 0
+        };
+
+        if ( typeof handlerIn === "object" ) {
+            cfg = $.extend(cfg, handlerIn );
+        } else if ($.isFunction(handlerOut)) {
+            cfg = $.extend(cfg, { over: handlerIn, out: handlerOut, selector: selector } );
+        } else {
+            cfg = $.extend(cfg, { over: handlerIn, out: handlerIn, selector: handlerOut } );
+        }
+
+        // instantiate variables
+        // cX, cY = current X and Y position of mouse, updated by mousemove event
+        // pX, pY = previous X and Y position of mouse, set by mouseover and polling interval
+        var cX, cY, pX, pY;
+
+        // A private function for getting mouse position
+        var track = function(ev) {
+            cX = ev.pageX;
+            cY = ev.pageY;
+        };
+
+        // A private function for comparing current and previous mouse position
+        var compare = function(ev,ob) {
+            ob.hoverIntent_t = clearTimeout(ob.hoverIntent_t);
+            // compare mouse positions to see if they've crossed the threshold
+            if ( Math.sqrt( (pX-cX)*(pX-cX) + (pY-cY)*(pY-cY) ) < cfg.sensitivity ) {
+                $(ob).off("mousemove.hoverIntent",track);
+                // set hoverIntent state to true (so mouseOut can be called)
+                ob.hoverIntent_s = true;
+                return cfg.over.apply(ob,[ev]);
+            } else {
+                // set previous coordinates for next time
+                pX = cX; pY = cY;
+                // use self-calling timeout, guarantees intervals are spaced out properly (avoids JavaScript timer bugs)
+                ob.hoverIntent_t = setTimeout( function(){compare(ev, ob);} , cfg.interval );
+            }
+        };
+
+        // A private function for delaying the mouseOut function
+        var delay = function(ev,ob) {
+            ob.hoverIntent_t = clearTimeout(ob.hoverIntent_t);
+            ob.hoverIntent_s = false;
+            return cfg.out.apply(ob,[ev]);
+        };
+
+        // A private function for handling mouse 'hovering'
+        var handleHover = function(e) {
+            // copy objects to be passed into t (required for event object to be passed in IE)
+            var ev = $.extend({},e);
+            var ob = this;
+
+            // cancel hoverIntent timer if it exists
+            if (ob.hoverIntent_t) { ob.hoverIntent_t = clearTimeout(ob.hoverIntent_t); }
+
+            // if e.type === "mouseenter"
+            if (e.type === "mouseenter") {
+                // set "previous" X and Y position based on initial entry point
+                pX = ev.pageX; pY = ev.pageY;
+                // update "current" X and Y position based on mousemove
+                $(ob).on("mousemove.hoverIntent",track);
+                // start polling interval (self-calling timeout) to compare mouse coordinates over time
+                if (!ob.hoverIntent_s) { ob.hoverIntent_t = setTimeout( function(){compare(ev,ob);} , cfg.interval );}
+
+                // else e.type == "mouseleave"
+            } else {
+                // unbind expensive mousemove event
+                $(ob).off("mousemove.hoverIntent",track);
+                // if hoverIntent state is true, then call the mouseOut function after the specified delay
+                if (ob.hoverIntent_s) { ob.hoverIntent_t = setTimeout( function(){delay(ev,ob);} , cfg.timeout );}
+            }
+        };
+
+        // listen for mouseenter and mouseleave
+        return this.on({'mouseenter.hoverIntent':handleHover,'mouseleave.hoverIntent':handleHover}, cfg.selector);
+    };
+})(jQuery);
+
+(function ($) {
+    var m = {
+            '\b': '\\b',
+            '\t': '\\t',
+            '\n': '\\n',
+            '\f': '\\f',
+            '\r': '\\r',
+            '"' : '\\"',
+            '\\': '\\\\'
+        },
+        s = {
+            'array': function (x) {
+                var a = ['['], b, f, i, l = x.length, v;
+                for (i = 0; i < l; i += 1) {
+                    v = x[i];
+                    f = s[typeof v];
+                    if (f) {
+                        v = f(v);
+                        if (typeof v == 'string') {
+                            if (b) {
+                                a[a.length] = ',';
+                            }
+                            a[a.length] = v;
+                            b = true;
+                        }
+                    }
+                }
+                a[a.length] = ']';
+                return a.join('');
+            },
+            'boolean': function (x) {
+                return String(x);
+            },
+            'null': function (x) {
+                return "null";
+            },
+            'number': function (x) {
+                return isFinite(x) ? String(x) : 'null';
+            },
+            'object': function (x) {
+                if (x) {
+                    if (x instanceof Array) {
+                        return s.array(x);
+                    }
+                    var a = ['{'], b, f, i, v;
+                    for (i in x) {
+                        v = x[i];
+                        f = s[typeof v];
+                        if (f) {
+                            v = f(v);
+                            if (typeof v == 'string') {
+                                if (b) {
+                                    a[a.length] = ',';
+                                }
+                                a.push(s.string(i), ':', v);
+                                b = true;
+                            }
+                        }
+                    }
+                    a[a.length] = '}';
+                    return a.join('');
+                }
+                return 'null';
+            },
+            'string': function (x) {
+                if (/["\\\x00-\x1f]/.test(x)) {
+                    x = x.replace(/([\x00-\x1f\\"])/g, function(a, b) {
+                        var c = m[b];
+                        if (c) {
+                            return c;
+                        }
+                        c = b.charCodeAt();
+                        return '\\u00' +
+                            Math.floor(c / 16).toString(16) +
+                            (c % 16).toString(16);
+                    });
+                }
+                return '"' + x + '"';
+            }
+        };
+
+	$.toJSON = function(v) {
+		var f = isNaN(v) ? s[typeof v] : s['number'];
+		if (f) return f(v);
+	};
+	
+	$.parseJSON = function(v, safe) {
+		if (safe === undefined) safe = $.parseJSON.safe;
+		if (safe && !/^("(\\.|[^"\\\n\r])*?"|[,:{}\[\]0-9.\-+Eaeflnr-u \n\r\t])+?$/.test(v))
+			return undefined;
+		return eval('('+v+')');
+	};
+	
+	$.parseJSON.safe = false;
+
+})(jQuery);
+
+/*!
+ * jQuery Migrate - v1.1.1 - 2013-02-16
+ * https://github.com/jquery/jquery-migrate
+ * Copyright 2005, 2013 jQuery Foundation, Inc. and other contributors; Licensed MIT
+ */
+(function( jQuery, window, undefined ) {
+// See http://bugs.jquery.com/ticket/13335
+// "use strict";
+
+
+var warnedAbout = {};
+
+// List of warnings already given; public read only
+jQuery.migrateWarnings = [];
+
+// Set to true to prevent console output; migrateWarnings still maintained
+// jQuery.migrateMute = false;
+
+// Show a message on the console so devs know we're active
+if ( !jQuery.migrateMute && window.console && console.log ) {
+	console.log("JQMIGRATE: Logging is active");
+}
+
+// Set to false to disable traces that appear with warnings
+if ( jQuery.migrateTrace === undefined ) {
+	jQuery.migrateTrace = true;
+}
+
+// Forget any warnings we've already given; public
+jQuery.migrateReset = function() {
+	warnedAbout = {};
+	jQuery.migrateWarnings.length = 0;
+};
+
+function migrateWarn( msg) {
+	if ( !warnedAbout[ msg ] ) {
+		warnedAbout[ msg ] = true;
+		jQuery.migrateWarnings.push( msg );
+		if ( window.console && console.warn && !jQuery.migrateMute ) {
+			console.warn( "JQMIGRATE: " + msg );
+			if ( jQuery.migrateTrace && console.trace ) {
+				console.trace();
+			}
+		}
+	}
+}
+
+function migrateWarnProp( obj, prop, value, msg ) {
+	if ( Object.defineProperty ) {
+		// On ES5 browsers (non-oldIE), warn if the code tries to get prop;
+		// allow property to be overwritten in case some other plugin wants it
+		try {
+			Object.defineProperty( obj, prop, {
+				configurable: true,
+				enumerable: true,
+				get: function() {
+					migrateWarn( msg );
+					return value;
+				},
+				set: function( newValue ) {
+					migrateWarn( msg );
+					value = newValue;
+				}
+			});
+			return;
+		} catch( err ) {
+			// IE8 is a dope about Object.defineProperty, can't warn there
+		}
+	}
+
+	// Non-ES5 (or broken) browser; just set the property
+	jQuery._definePropertyBroken = true;
+	obj[ prop ] = value;
+}
+
+if ( document.compatMode === "BackCompat" ) {
+	// jQuery has never supported or tested Quirks Mode
+	migrateWarn( "jQuery is not compatible with Quirks Mode" );
+}
+
+
+var attrFn = jQuery( "<input/>", { size: 1 } ).attr("size") && jQuery.attrFn,
+	oldAttr = jQuery.attr,
+	valueAttrGet = jQuery.attrHooks.value && jQuery.attrHooks.value.get ||
+		function() { return null; },
+	valueAttrSet = jQuery.attrHooks.value && jQuery.attrHooks.value.set ||
+		function() { return undefined; },
+	rnoType = /^(?:input|button)$/i,
+	rnoAttrNodeType = /^[238]$/,
+	rboolean = /^(?:autofocus|autoplay|async|checked|controls|defer|disabled|hidden|loop|multiple|open|readonly|required|scoped|selected)$/i,
+	ruseDefault = /^(?:checked|selected)$/i;
+
+// jQuery.attrFn
+migrateWarnProp( jQuery, "attrFn", attrFn || {}, "jQuery.attrFn is deprecated" );
+
+jQuery.attr = function( elem, name, value, pass ) {
+	var lowerName = name.toLowerCase(),
+		nType = elem && elem.nodeType;
+
+	if ( pass ) {
+		// Since pass is used internally, we only warn for new jQuery
+		// versions where there isn't a pass arg in the formal params
+		if ( oldAttr.length < 4 ) {
+			migrateWarn("jQuery.fn.attr( props, pass ) is deprecated");
+		}
+		if ( elem && !rnoAttrNodeType.test( nType ) &&
+			(attrFn ? name in attrFn : jQuery.isFunction(jQuery.fn[name])) ) {
+			return jQuery( elem )[ name ]( value );
+		}
+	}
+
+	// Warn if user tries to set `type`, since it breaks on IE 6/7/8; by checking
+	// for disconnected elements we don't warn on $( "<button>", { type: "button" } ).
+	if ( name === "type" && value !== undefined && rnoType.test( elem.nodeName ) && elem.parentNode ) {
+		migrateWarn("Can't change the 'type' of an input or button in IE 6/7/8");
+	}
+
+	// Restore boolHook for boolean property/attribute synchronization
+	if ( !jQuery.attrHooks[ lowerName ] && rboolean.test( lowerName ) ) {
+		jQuery.attrHooks[ lowerName ] = {
+			get: function( elem, name ) {
+				// Align boolean attributes with corresponding properties
+				// Fall back to attribute presence where some booleans are not supported
+				var attrNode,
+					property = jQuery.prop( elem, name );
+				return property === true || typeof property !== "boolean" &&
+					( attrNode = elem.getAttributeNode(name) ) && attrNode.nodeValue !== false ?
+
+					name.toLowerCase() :
+					undefined;
+			},
+			set: function( elem, value, name ) {
+				var propName;
+				if ( value === false ) {
+					// Remove boolean attributes when set to false
+					jQuery.removeAttr( elem, name );
+				} else {
+					// value is true since we know at this point it's type boolean and not false
+					// Set boolean attributes to the same name and set the DOM property
+					propName = jQuery.propFix[ name ] || name;
+					if ( propName in elem ) {
+						// Only set the IDL specifically if it already exists on the element
+						elem[ propName ] = true;
+					}
+
+					elem.setAttribute( name, name.toLowerCase() );
+				}
+				return name;
+			}
+		};
+
+		// Warn only for attributes that can remain distinct from their properties post-1.9
+		if ( ruseDefault.test( lowerName ) ) {
+			migrateWarn( "jQuery.fn.attr('" + lowerName + "') may use property instead of attribute" );
+		}
+	}
+
+	return oldAttr.call( jQuery, elem, name, value );
+};
+
+// attrHooks: value
+jQuery.attrHooks.value = {
+	get: function( elem, name ) {
+		var nodeName = ( elem.nodeName || "" ).toLowerCase();
+		if ( nodeName === "button" ) {
+			return valueAttrGet.apply( this, arguments );
+		}
+		if ( nodeName !== "input" && nodeName !== "option" ) {
+			migrateWarn("jQuery.fn.attr('value') no longer gets properties");
+		}
+		return name in elem ?
+			elem.value :
+			null;
+	},
+	set: function( elem, value ) {
+		var nodeName = ( elem.nodeName || "" ).toLowerCase();
+		if ( nodeName === "button" ) {
+			return valueAttrSet.apply( this, arguments );
+		}
+		if ( nodeName !== "input" && nodeName !== "option" ) {
+			migrateWarn("jQuery.fn.attr('value', val) no longer sets properties");
+		}
+		// Does not return so that setAttribute is also used
+		elem.value = value;
+	}
+};
+
+
+var matched, browser,
+	oldInit = jQuery.fn.init,
+	oldParseJSON = jQuery.parseJSON,
+	// Note this does NOT include the #9521 XSS fix from 1.7!
+	rquickExpr = /^(?:[^<]*(<[\w\W]+>)[^>]*|#([\w\-]*))$/;
+
+// $(html) "looks like html" rule change
+jQuery.fn.init = function( selector, context, rootjQuery ) {
+	var match;
+
+	if ( selector && typeof selector === "string" && !jQuery.isPlainObject( context ) &&
+			(match = rquickExpr.exec( selector )) && match[1] ) {
+		// This is an HTML string according to the "old" rules; is it still?
+		if ( selector.charAt( 0 ) !== "<" ) {
+			migrateWarn("$(html) HTML strings must start with '<' character");
+		}
+		// Now process using loose rules; let pre-1.8 play too
+		if ( context && context.context ) {
+			// jQuery object as context; parseHTML expects a DOM object
+			context = context.context;
+		}
+		if ( jQuery.parseHTML ) {
+			return oldInit.call( this, jQuery.parseHTML( jQuery.trim(selector), context, true ),
+					context, rootjQuery );
+		}
+	}
+	return oldInit.apply( this, arguments );
+};
+jQuery.fn.init.prototype = jQuery.fn;
+
+// Let $.parseJSON(falsy_value) return null
+jQuery.parseJSON = function( json ) {
+	if ( !json && json !== null ) {
+		migrateWarn("jQuery.parseJSON requires a valid JSON string");
+		return null;
+	}
+	return oldParseJSON.apply( this, arguments );
+};
+
+jQuery.uaMatch = function( ua ) {
+	ua = ua.toLowerCase();
+
+	var match = /(chrome)[ \/]([\w.]+)/.exec( ua ) ||
+		/(webkit)[ \/]([\w.]+)/.exec( ua ) ||
+		/(opera)(?:.*version|)[ \/]([\w.]+)/.exec( ua ) ||
+		/(msie) ([\w.]+)/.exec( ua ) ||
+		ua.indexOf("compatible") < 0 && /(mozilla)(?:.*? rv:([\w.]+)|)/.exec( ua ) ||
+		[];
+
+	return {
+		browser: match[ 1 ] || "",
+		version: match[ 2 ] || "0"
+	};
+};
+
+// Don't clobber any existing jQuery.browser in case it's different
+if ( !jQuery.browser ) {
+	matched = jQuery.uaMatch( navigator.userAgent );
+	browser = {};
+
+	if ( matched.browser ) {
+		browser[ matched.browser ] = true;
+		browser.version = matched.version;
+	}
+
+	// Chrome is Webkit, but Webkit is also Safari.
+	if ( browser.chrome ) {
+		browser.webkit = true;
+	} else if ( browser.webkit ) {
+		browser.safari = true;
+	}
+
+	jQuery.browser = browser;
+}
+
+// Warn if the code tries to get jQuery.browser
+migrateWarnProp( jQuery, "browser", jQuery.browser, "jQuery.browser is deprecated" );
+
+jQuery.sub = function() {
+	function jQuerySub( selector, context ) {
+		return new jQuerySub.fn.init( selector, context );
+	}
+	jQuery.extend( true, jQuerySub, this );
+	jQuerySub.superclass = this;
+	jQuerySub.fn = jQuerySub.prototype = this();
+	jQuerySub.fn.constructor = jQuerySub;
+	jQuerySub.sub = this.sub;
+	jQuerySub.fn.init = function init( selector, context ) {
+		if ( context && context instanceof jQuery && !(context instanceof jQuerySub) ) {
+			context = jQuerySub( context );
+		}
+
+		return jQuery.fn.init.call( this, selector, context, rootjQuerySub );
+	};
+	jQuerySub.fn.init.prototype = jQuerySub.fn;
+	var rootjQuerySub = jQuerySub(document);
+	migrateWarn( "jQuery.sub() is deprecated" );
+	return jQuerySub;
+};
+
+
+// Ensure that $.ajax gets the new parseJSON defined in core.js
+jQuery.ajaxSetup({
+	converters: {
+		"text json": jQuery.parseJSON
+	}
+});
+
+
+var oldFnData = jQuery.fn.data;
+
+jQuery.fn.data = function( name ) {
+	var ret, evt,
+		elem = this[0];
+
+	// Handles 1.7 which has this behavior and 1.8 which doesn't
+	if ( elem && name === "events" && arguments.length === 1 ) {
+		ret = jQuery.data( elem, name );
+		evt = jQuery._data( elem, name );
+		if ( ( ret === undefined || ret === evt ) && evt !== undefined ) {
+			migrateWarn("Use of jQuery.fn.data('events') is deprecated");
+			return evt;
+		}
+	}
+	return oldFnData.apply( this, arguments );
+};
+
+
+var rscriptType = /\/(java|ecma)script/i,
+	oldSelf = jQuery.fn.andSelf || jQuery.fn.addBack;
+
+jQuery.fn.andSelf = function() {
+	migrateWarn("jQuery.fn.andSelf() replaced by jQuery.fn.addBack()");
+	return oldSelf.apply( this, arguments );
+};
+
+// Since jQuery.clean is used internally on older versions, we only shim if it's missing
+if ( !jQuery.clean ) {
+	jQuery.clean = function( elems, context, fragment, scripts ) {
+		// Set context per 1.8 logic
+		context = context || document;
+		context = !context.nodeType && context[0] || context;
+		context = context.ownerDocument || context;
+
+		migrateWarn("jQuery.clean() is deprecated");
+
+		var i, elem, handleScript, jsTags,
+			ret = [];
+
+		jQuery.merge( ret, jQuery.buildFragment( elems, context ).childNodes );
+
+		// Complex logic lifted directly from jQuery 1.8
+		if ( fragment ) {
+			// Special handling of each script element
+			handleScript = function( elem ) {
+				// Check if we consider it executable
+				if ( !elem.type || rscriptType.test( elem.type ) ) {
+					// Detach the script and store it in the scripts array (if provided) or the fragment
+					// Return truthy to indicate that it has been handled
+					return scripts ?
+						scripts.push( elem.parentNode ? elem.parentNode.removeChild( elem ) : elem ) :
+						fragment.appendChild( elem );
+				}
+			};
+
+			for ( i = 0; (elem = ret[i]) != null; i++ ) {
+				// Check if we're done after handling an executable script
+				if ( !( jQuery.nodeName( elem, "script" ) && handleScript( elem ) ) ) {
+					// Append to fragment and handle embedded scripts
+					fragment.appendChild( elem );
+					if ( typeof elem.getElementsByTagName !== "undefined" ) {
+						// handleScript alters the DOM, so use jQuery.merge to ensure snapshot iteration
+						jsTags = jQuery.grep( jQuery.merge( [], elem.getElementsByTagName("script") ), handleScript );
+
+						// Splice the scripts into ret after their former ancestor and advance our index beyond them
+						ret.splice.apply( ret, [i + 1, 0].concat( jsTags ) );
+						i += jsTags.length;
+					}
+				}
+			}
+		}
+
+		return ret;
+	};
+}
+
+var eventAdd = jQuery.event.add,
+	eventRemove = jQuery.event.remove,
+	eventTrigger = jQuery.event.trigger,
+	oldToggle = jQuery.fn.toggle,
+	oldLive = jQuery.fn.live,
+	oldDie = jQuery.fn.die,
+	ajaxEvents = "ajaxStart|ajaxStop|ajaxSend|ajaxComplete|ajaxError|ajaxSuccess",
+	rajaxEvent = new RegExp( "\\b(?:" + ajaxEvents + ")\\b" ),
+	rhoverHack = /(?:^|\s)hover(\.\S+|)\b/,
+	hoverHack = function( events ) {
+		if ( typeof( events ) !== "string" || jQuery.event.special.hover ) {
+			return events;
+		}
+		if ( rhoverHack.test( events ) ) {
+			migrateWarn("'hover' pseudo-event is deprecated, use 'mouseenter mouseleave'");
+		}
+		return events && events.replace( rhoverHack, "mouseenter$1 mouseleave$1" );
+	};
+
+// Event props removed in 1.9, put them back if needed; no practical way to warn them
+if ( jQuery.event.props && jQuery.event.props[ 0 ] !== "attrChange" ) {
+	jQuery.event.props.unshift( "attrChange", "attrName", "relatedNode", "srcElement" );
+}
+
+// Undocumented jQuery.event.handle was "deprecated" in jQuery 1.7
+if ( jQuery.event.dispatch ) {
+	migrateWarnProp( jQuery.event, "handle", jQuery.event.dispatch, "jQuery.event.handle is undocumented and deprecated" );
+}
+
+// Support for 'hover' pseudo-event and ajax event warnings
+jQuery.event.add = function( elem, types, handler, data, selector ){
+	if ( elem !== document && rajaxEvent.test( types ) ) {
+		migrateWarn( "AJAX events should be attached to document: " + types );
+	}
+	eventAdd.call( this, elem, hoverHack( types || "" ), handler, data, selector );
+};
+jQuery.event.remove = function( elem, types, handler, selector, mappedTypes ){
+	eventRemove.call( this, elem, hoverHack( types ) || "", handler, selector, mappedTypes );
+};
+
+jQuery.fn.error = function() {
+	var args = Array.prototype.slice.call( arguments, 0);
+	migrateWarn("jQuery.fn.error() is deprecated");
+	args.splice( 0, 0, "error" );
+	if ( arguments.length ) {
+		return this.bind.apply( this, args );
+	}
+	// error event should not bubble to window, although it does pre-1.7
+	this.triggerHandler.apply( this, args );
+	return this;
+};
+
+jQuery.fn.toggle = function( fn, fn2 ) {
+
+	// Don't mess with animation or css toggles
+	if ( !jQuery.isFunction( fn ) || !jQuery.isFunction( fn2 ) ) {
+		return oldToggle.apply( this, arguments );
+	}
+	migrateWarn("jQuery.fn.toggle(handler, handler...) is deprecated");
+
+	// Save reference to arguments for access in closure
+	var args = arguments,
+		guid = fn.guid || jQuery.guid++,
+		i = 0,
+		toggler = function( event ) {
+			// Figure out which function to execute
+			var lastToggle = ( jQuery._data( this, "lastToggle" + fn.guid ) || 0 ) % i;
+			jQuery._data( this, "lastToggle" + fn.guid, lastToggle + 1 );
+
+			// Make sure that clicks stop
+			event.preventDefault();
+
+			// and execute the function
+			return args[ lastToggle ].apply( this, arguments ) || false;
+		};
+
+	// link all the functions, so any of them can unbind this click handler
+	toggler.guid = guid;
+	while ( i < args.length ) {
+		args[ i++ ].guid = guid;
+	}
+
+	return this.click( toggler );
+};
+
+jQuery.fn.live = function( types, data, fn ) {
+	migrateWarn("jQuery.fn.live() is deprecated");
+	if ( oldLive ) {
+		return oldLive.apply( this, arguments );
+	}
+	jQuery( this.context ).on( types, this.selector, data, fn );
+	return this;
+};
+
+jQuery.fn.die = function( types, fn ) {
+	migrateWarn("jQuery.fn.die() is deprecated");
+	if ( oldDie ) {
+		return oldDie.apply( this, arguments );
+	}
+	jQuery( this.context ).off( types, this.selector || "**", fn );
+	return this;
+};
+
+// Turn global events into document-triggered events
+jQuery.event.trigger = function( event, data, elem, onlyHandlers  ){
+	if ( !elem && !rajaxEvent.test( event ) ) {
+		migrateWarn( "Global events are undocumented and deprecated" );
+	}
+	return eventTrigger.call( this,  event, data, elem || document, onlyHandlers  );
+};
+jQuery.each( ajaxEvents.split("|"),
+	function( _, name ) {
+		jQuery.event.special[ name ] = {
+			setup: function() {
+				var elem = this;
+
+				// The document needs no shimming; must be !== for oldIE
+				if ( elem !== document ) {
+					jQuery.event.add( document, name + "." + jQuery.guid, function() {
+						jQuery.event.trigger( name, null, elem, true );
+					});
+					jQuery._data( this, name, jQuery.guid++ );
+				}
+				return false;
+			},
+			teardown: function() {
+				if ( this !== document ) {
+					jQuery.event.remove( document, name + "." + jQuery._data( this, name ) );
+				}
+				return false;
+			}
+		};
+	}
+);
+
+
+})( jQuery, window );
+
 /*! jQuery UI - v1.9.2 - 2012-11-23
 * http://jqueryui.com
 * Includes: jquery.ui.core.js, jquery.ui.widget.js, jquery.ui.mouse.js, jquery.ui.draggable.js, jquery.ui.droppable.js, jquery.ui.resizable.js, jquery.ui.selectable.js, jquery.ui.sortable.js, jquery.ui.effect.js, jquery.ui.accordion.js, jquery.ui.autocomplete.js, jquery.ui.button.js, jquery.ui.datepicker.js, jquery.ui.dialog.js, jquery.ui.effect-blind.js, jquery.ui.effect-bounce.js, jquery.ui.effect-clip.js, jquery.ui.effect-drop.js, jquery.ui.effect-explode.js, jquery.ui.effect-fade.js, jquery.ui.effect-fold.js, jquery.ui.effect-highlight.js, jquery.ui.effect-pulsate.js, jquery.ui.effect-scale.js, jquery.ui.effect-shake.js, jquery.ui.effect-slide.js, jquery.ui.effect-transfer.js, jquery.ui.menu.js, jquery.ui.position.js, jquery.ui.progressbar.js, jquery.ui.slider.js, jquery.ui.spinner.js, jquery.ui.tabs.js, jquery.ui.tooltip.js
@@ -24701,6 +26066,46 @@ $.widget( "ui.tooltip", {
 
 }( jQuery ) );
 
+/*
+ * jQuery UI Autocomplete HTML Extension
+ *
+ * Copyright 2010, Scott González (http://scottgonzalez.com)
+ * Dual licensed under the MIT or GPL Version 2 licenses.
+ *
+ * http://github.com/scottgonzalez/jquery-ui-extensions
+ */
+(function( $ ) {
+
+var proto = $.ui.autocomplete.prototype,
+	initSource = proto._initSource;
+
+function filter( array, term ) {
+	var matcher = new RegExp( $.ui.autocomplete.escapeRegex(term), "i" );
+	return $.grep( array, function(value) {
+		return matcher.test( $( "<div>" ).html( value.label || value.value || value ).text() );
+	});
+}
+
+$.extend( proto, {
+	_initSource: function() {
+		if ( this.options.html && $.isArray(this.options.source) ) {
+			this.source = function( request, response ) {
+				response( filter( this.options.source, request.term ) );
+			};
+		} else {
+			initSource.call( this );
+		}
+	},
+
+	_renderItem: function( ul, item) {
+		return $( "<li></li>" )
+			.data( "item.autocomplete", item )
+			.append( $( "<a></a>" )[ this.options.html ? "html" : "text" ]( item.label ) )
+			.appendTo( ul );
+	}
+});
+
+})( jQuery );
 /*!
 Copyright © 2006-2007 Kevin C. Olbrich
 Copyright © 2010-2013 LIM SAS (http://lim.eu) - Julien Sanchez
@@ -26393,3 +27798,163 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 
   return Qty;
 }));
+
+
+/*
+ * Superfish v1.4.8 - jQuery menu widget
+ * Copyright (c) 2008 Joel Birch
+ *
+ * Dual licensed under the MIT and GPL licenses:
+ * 	http://www.opensource.org/licenses/mit-license.php
+ * 	http://www.gnu.org/licenses/gpl.html
+ *
+ * CHANGELOG: http://users.tpg.com.au/j_birch/plugins/superfish/changelog.txt
+ */
+
+;(function($){
+	$.fn.superfish = function(op){
+
+		var sf = $.fn.superfish,
+			c = sf.c,
+			$arrow = $(['<span class="',c.arrowClass,'"> &#187;</span>'].join('')),
+			over = function(){
+				var $$ = $(this), menu = getMenu($$);
+				clearTimeout(menu.sfTimer);
+				$$.showSuperfishUl().siblings().hideSuperfishUl();
+			},
+			out = function(){
+				var $$ = $(this), menu = getMenu($$), o = sf.op;
+				clearTimeout(menu.sfTimer);
+				menu.sfTimer=setTimeout(function(){
+					o.retainPath=($.inArray($$[0],o.$path)>-1);
+					$$.hideSuperfishUl();
+					if (o.$path.length && $$.parents(['li.',o.hoverClass].join('')).length<1){over.call(o.$path);}
+				},o.delay);	
+			},
+			getMenu = function($menu){
+				var menu = $menu.parents(['ul.',c.menuClass,':first'].join(''))[0];
+				sf.op = sf.o[menu.serial];
+				return menu;
+			},
+			addArrow = function($a){ $a.addClass(c.anchorClass).append($arrow.clone()); };
+			
+		return this.each(function() {
+			var s = this.serial = sf.o.length;
+			var o = $.extend({},sf.defaults,op);
+			o.$path = $('li.'+o.pathClass,this).slice(0,o.pathLevels).each(function(){
+				$(this).addClass([o.hoverClass,c.bcClass].join(' '))
+					.filter('li:has(ul)').removeClass(o.pathClass);
+			});
+			sf.o[s] = sf.op = o;
+			
+			$('li:has(ul)',this)[($.fn.hoverIntent && !o.disableHI) ? 'hoverIntent' : 'hover'](over,out).each(function() {
+				if (o.autoArrows) addArrow( $('>a:first-child',this) );
+			})
+			.not('.'+c.bcClass)
+				.hideSuperfishUl();
+			
+			var $a = $('a',this);
+			$a.each(function(i){
+				var $li = $a.eq(i).parents('li');
+				$a.eq(i).focus(function(){over.call($li);}).blur(function(){out.call($li);});
+			});
+			o.onInit.call(this);
+			
+		}).each(function() {
+			menuClasses = [c.menuClass];
+			if (sf.op.dropShadows) menuClasses.push(c.shadowClass);
+			$(this).addClass(menuClasses.join(' '));
+		});
+	};
+
+	var sf = $.fn.superfish;
+	sf.o = [];
+	sf.op = {};
+	sf.IE7fix = function(){
+		var o = sf.op;
+		//if ($.browser.msie && $.browser.version > 6 && o.dropShadows && o.animation.opacity!=undefined)
+		//	this.toggleClass(sf.c.shadowClass+'-off');
+		};
+	sf.c = {
+		bcClass     : 'sf-breadcrumb',
+		menuClass   : 'sf-js-enabled',
+		anchorClass : 'sf-with-ul',
+		arrowClass  : 'sf-sub-indicator',
+		shadowClass : 'sf-shadow'
+	};
+	sf.defaults = {
+		hoverClass	: 'sfHover',
+		pathClass	: 'overideThisToUse',
+		pathLevels	: 1,
+		delay		: 800,
+		animation	: {opacity:'show'},
+		speed		: 'normal',
+		autoArrows	: true,
+		dropShadows : true,
+		disableHI	: false,		// true disables hoverIntent detection
+		onInit		: function(){}, // callback functions
+		onBeforeShow: function(){},
+		onShow		: function(){},
+		onHide		: function(){}
+	};
+	$.fn.extend({
+		hideSuperfishUl : function(){
+			var o = sf.op,
+				not = (o.retainPath===true) ? o.$path : '';
+			o.retainPath = false;
+			var $ul = $(['li.',o.hoverClass].join(''),this).add(this).not(not).removeClass(o.hoverClass)
+					.find('>ul').hide().css('visibility','hidden');
+					
+			// if menu was moved to avoid being offscreen, restore its original location before it's hidden
+			if ($ul.data('moved') == 1) { 
+				$ul.css('margin-left', $ul.data('orig-left'));
+				$ul.css('margin-top',  $ul.data('orig-top'));
+				$ul.parent().css('z-index', $ul.data('orig-zindex'));
+				$ul.data('moved', 0);
+				$ul.data('orig-left', '');
+				$ul.data('orig-top', '');
+				$ul.data('orig-z-index', '');
+			}
+			o.onHide.call($ul);
+			return this;
+		},
+		showSuperfishUl : function(){
+			var o = sf.op,
+				sh = sf.c.shadowClass+'-off',
+				$ul = this.addClass(o.hoverClass)
+					.find('>ul:hidden').css('visibility','visible');
+			sf.IE7fix.call($ul);
+			var offset = this.offset();
+			
+			// menu goes off screen?
+			if (((offset.left + (2 * $ul.width())) > jQuery(window).width()) && ($ul.data('moved') != 1) && ($ul.parents('li').length > 1)){
+				
+				$ul.data('orig-left', $ul.css('margin-left'));
+				$ul.data('orig-top', $ul.css('margin-top'));
+				$ul.data('orig-z-index',  $ul.parent().css('z-index'));
+				$ul.css('margin-left', (parseInt($ul.css('margin-left')) - (1.2 * $ul.width())) + 'px');
+				$ul.css('margin-top', (parseInt($ul.css('margin-top')) + 25) + 'px');
+				
+				if ($.browser.msie && (parseInt($.browser.version) >= 7) && (parseInt($.browser.version) < 8)) {
+					$ul.parent().css('z-index', $ul.parent().css('z-index') + 10);	// IE7 wants the z-index set to something higher than the parent...
+				}
+				$ul.data('moved', 1);
+			} else {
+				if ($ul.data('moved') == 1) { 
+					$ul.css('margin-left', $ul.data('orig-left'));
+					$ul.css('margin-top',  $ul.data('orig-top'));
+					$ul.parent().css('z-index', $ul.data('orig-zindex'));
+					$ul.data('moved', 0);
+					$ul.data('orig-left', '');
+					$ul.data('orig-top', '');
+					$ul.data('orig-z-index', '');
+				}
+			}
+			
+			o.onBeforeShow.call($ul);
+			$ul.animate(o.animation,o.speed,function(){ sf.IE7fix.call($ul); o.onShow.call($ul); });
+			return this;
+		}
+	});
+
+})(jQuery);

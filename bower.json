@@ -17,17 +17,20 @@
   "dependencies": {
     "jquery": "~1.10.2",
     "jqueryui": "~1.9.2",
-	"quantities": "./assets/misc/quantities.js"
+    "jquery-migrate": "1.1.1",
+    "jquery-hoverIntent": "~1.8.1",
+    "jgrowl": "~1.3.0",
+    "quantities": "./assets/lib/misc/quantities.js",
+    "superfish": "./assets/lib/jquery/superfish.js",
+    "jquery-json": "./assets/lib/jquery/jquery.json.js",
+    "jquery-cookie": "./assets/lib/jquery/jquery.cookie.js",
+    "jquery-cookiejar": "./assets/lib/jquery/jquery.cookiejar.pack.js",
+	"jqueryui-autocomplete-html": "./assets/lib/jquery/jquery.ui.autocomplete.html.js"
   },
   "stash": {
-	"handsontable": "~0.10.4",
-	"fullcalendar": "~2.0.0",
-	"circular-slider": "~1.0.3",
-	"jquery-tokeninput": "~1.7.0",
-	"jquery-hoverIntent": "~1.8.1",
-	"jquery-migrate": "1.1.1",
-	"jquery.autogrowtextarea": "*",
-	"blockui": "*",
-	"jquery-cookie": "~1.4.1"
+    "fullcalendar": "~2.0.0",
+    "jquery-tokeninput": "~1.7.0",
+    "jquery.autogrowtextarea": "*",
+    "blockui": "*"
   }
 }
