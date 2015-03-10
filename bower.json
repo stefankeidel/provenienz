@@ -32,7 +32,9 @@
     "jquery-cookie": "./assets/lib/jquery/jquery.cookie.js",
     "jquery-cookiejar": "./assets/lib/jquery/jquery.cookiejar.pack.js",
 	"jqueryui-autocomplete-html": "./assets/lib/jquery/jquery.ui.autocomplete.html.js",
-	"jqueryui-searchlight": "./assets/lib/jquery/jquery.searchlight.js"
+	"jqueryui-searchlight": "./assets/lib/jquery/jquery.searchlight.js",
+	"jquery-template": "./assets/lib/jquery/jquery.template.js",
+	"jquery-rotate": "./assets/lib/jquery/jQueryRotateCompressed.2.2.js"
   },
   "stash": {
     "fullcalendar": "~2.0.0",

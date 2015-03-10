@@ -9,7 +9,8 @@ module.exports = function(grunt) {
 				bowerOptions: {
 					relative: false
 				}
-			}
+			},
+
 		},
 		concat: {
 			ca_libs : {
