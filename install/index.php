@@ -128,8 +128,7 @@ if (defined('__CA_ALLOW_DRAG_AND_DROP_PROFILE_UPLOAD_IN_INSTALLER__') && __CA_AL
 	<title>CollectiveAccess: Installer</title>
 	<link href="css/site.css" rel="stylesheet" type="text/css" />
 	
-	<script src='../assets/jquery/jquery.js' type='text/javascript'></script>
-	<script src='../assets/jquery/jquery-ui/jquery-ui.min.js' type='text/javascript'></script></head>
+	<script src='../assets/bower.combined.min.js' type='text/javascript'></script>
 <?php
 if (defined('__CA_ALLOW_DRAG_AND_DROP_PROFILE_UPLOAD_IN_INSTALLER__') && __CA_ALLOW_DRAG_AND_DROP_PROFILE_UPLOAD_IN_INSTALLER__) {
 ?>

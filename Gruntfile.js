@@ -12,7 +12,7 @@ module.exports = function(grunt) {
 			}
 		},
 		concat: {
-			js : {
+			ca_libs : {
 				src : [
 					'assets/ca/*'
 				],
@@ -44,6 +44,5 @@ module.exports = function(grunt) {
 	grunt.loadNpmTasks('grunt-bower-concat');
 
 	// Default task(s).
-	grunt.registerTask('default', [ 'bower_concat', 'concat:js', 'uglify' ]);
+	grunt.registerTask('default', [ 'bower_concat', 'concat', 'uglify' ]);
 };
-

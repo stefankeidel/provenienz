@@ -20,17 +20,23 @@
     "jquery-migrate": "1.1.1",
     "jquery-hoverIntent": "~1.8.1",
     "jgrowl": "~1.3.0",
+	"jquery-mousewheel": "~3.0.6",
+	"hammerjs": "~2.0.4",
+	"jcarousel": "~0.3.0",
+	"pdfobject": "~1.2",
+	"jquery.hotkeys": "*",
+	"blockui" : "*",
     "quantities": "./assets/lib/misc/quantities.js",
     "superfish": "./assets/lib/jquery/superfish.js",
     "jquery-json": "./assets/lib/jquery/jquery.json.js",
     "jquery-cookie": "./assets/lib/jquery/jquery.cookie.js",
     "jquery-cookiejar": "./assets/lib/jquery/jquery.cookiejar.pack.js",
-	"jqueryui-autocomplete-html": "./assets/lib/jquery/jquery.ui.autocomplete.html.js"
+	"jqueryui-autocomplete-html": "./assets/lib/jquery/jquery.ui.autocomplete.html.js",
+	"jqueryui-searchlight": "./assets/lib/jquery/jquery.searchlight.js"
   },
   "stash": {
     "fullcalendar": "~2.0.0",
     "jquery-tokeninput": "~1.7.0",
-    "jquery.autogrowtextarea": "*",
-    "blockui": "*"
+    "jquery.autogrowtextarea": "*"
   }
 }

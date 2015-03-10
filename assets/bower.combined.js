@@ -9788,6 +9788,4511 @@ if ( typeof module === "object" && module && typeof module.exports === "object" 
 
 })( window );
 
+/*!
+ * jQuery blockUI plugin
+ * Version 2.70.0-2014.11.23
+ * Requires jQuery v1.7 or later
+ *
+ * Examples at: http://malsup.com/jquery/block/
+ * Copyright (c) 2007-2013 M. Alsup
+ * Dual licensed under the MIT and GPL licenses:
+ * http://www.opensource.org/licenses/mit-license.php
+ * http://www.gnu.org/licenses/gpl.html
+ *
+ * Thanks to Amir-Hossein Sobhi for some excellent contributions!
+ */
+
+;(function() {
+/*jshint eqeqeq:false curly:false latedef:false */
+"use strict";
+
+	function setup($) {
+		$.fn._fadeIn = $.fn.fadeIn;
+
+		var noOp = $.noop || function() {};
+
+		// this bit is to ensure we don't call setExpression when we shouldn't (with extra muscle to handle
+		// confusing userAgent strings on Vista)
+		var msie = /MSIE/.test(navigator.userAgent);
+		var ie6  = /MSIE 6.0/.test(navigator.userAgent) && ! /MSIE 8.0/.test(navigator.userAgent);
+		var mode = document.documentMode || 0;
+		var setExpr = $.isFunction( document.createElement('div').style.setExpression );
+
+		// global $ methods for blocking/unblocking the entire page
+		$.blockUI   = function(opts) { install(window, opts); };
+		$.unblockUI = function(opts) { remove(window, opts); };
+
+		// convenience method for quick growl-like notifications  (http://www.google.com/search?q=growl)
+		$.growlUI = function(title, message, timeout, onClose) {
+			var $m = $('<div class="growlUI"></div>');
+			if (title) $m.append('<h1>'+title+'</h1>');
+			if (message) $m.append('<h2>'+message+'</h2>');
+			if (timeout === undefined) timeout = 3000;
+
+			// Added by konapun: Set timeout to 30 seconds if this growl is moused over, like normal toast notifications
+			var callBlock = function(opts) {
+				opts = opts || {};
+
+				$.blockUI({
+					message: $m,
+					fadeIn : typeof opts.fadeIn  !== 'undefined' ? opts.fadeIn  : 700,
+					fadeOut: typeof opts.fadeOut !== 'undefined' ? opts.fadeOut : 1000,
+					timeout: typeof opts.timeout !== 'undefined' ? opts.timeout : timeout,
+					centerY: false,
+					showOverlay: false,
+					onUnblock: onClose,
+					css: $.blockUI.defaults.growlCSS
+				});
+			};
+
+			callBlock();
+			var nonmousedOpacity = $m.css('opacity');
+			$m.mouseover(function() {
+				callBlock({
+					fadeIn: 0,
+					timeout: 30000
+				});
+
+				var displayBlock = $('.blockMsg');
+				displayBlock.stop(); // cancel fadeout if it has started
+				displayBlock.fadeTo(300, 1); // make it easier to read the message by removing transparency
+			}).mouseout(function() {
+				$('.blockMsg').fadeOut(1000);
+			});
+			// End konapun additions
+		};
+
+		// plugin method for blocking element content
+		$.fn.block = function(opts) {
+			if ( this[0] === window ) {
+				$.blockUI( opts );
+				return this;
+			}
+			var fullOpts = $.extend({}, $.blockUI.defaults, opts || {});
+			this.each(function() {
+				var $el = $(this);
+				if (fullOpts.ignoreIfBlocked && $el.data('blockUI.isBlocked'))
+					return;
+				$el.unblock({ fadeOut: 0 });
+			});
+
+			return this.each(function() {
+				if ($.css(this,'position') == 'static') {
+					this.style.position = 'relative';
+					$(this).data('blockUI.static', true);
+				}
+				this.style.zoom = 1; // force 'hasLayout' in ie
+				install(this, opts);
+			});
+		};
+
+		// plugin method for unblocking element content
+		$.fn.unblock = function(opts) {
+			if ( this[0] === window ) {
+				$.unblockUI( opts );
+				return this;
+			}
+			return this.each(function() {
+				remove(this, opts);
+			});
+		};
+
+		$.blockUI.version = 2.70; // 2nd generation blocking at no extra cost!
+
+		// override these in your code to change the default behavior and style
+		$.blockUI.defaults = {
+			// message displayed when blocking (use null for no message)
+			message:  '<h1>Please wait...</h1>',
+
+			title: null,		// title string; only used when theme == true
+			draggable: true,	// only used when theme == true (requires jquery-ui.js to be loaded)
+
+			theme: false, // set to true to use with jQuery UI themes
+
+			// styles for the message when blocking; if you wish to disable
+			// these and use an external stylesheet then do this in your code:
+			// $.blockUI.defaults.css = {};
+			css: {
+				padding:	0,
+				margin:		0,
+				width:		'30%',
+				top:		'40%',
+				left:		'35%',
+				textAlign:	'center',
+				color:		'#000',
+				border:		'3px solid #aaa',
+				backgroundColor:'#fff',
+				cursor:		'wait'
+			},
+
+			// minimal style set used when themes are used
+			themedCSS: {
+				width:	'30%',
+				top:	'40%',
+				left:	'35%'
+			},
+
+			// styles for the overlay
+			overlayCSS:  {
+				backgroundColor:	'#000',
+				opacity:			0.6,
+				cursor:				'wait'
+			},
+
+			// style to replace wait cursor before unblocking to correct issue
+			// of lingering wait cursor
+			cursorReset: 'default',
+
+			// styles applied when using $.growlUI
+			growlCSS: {
+				width:		'350px',
+				top:		'10px',
+				left:		'',
+				right:		'10px',
+				border:		'none',
+				padding:	'5px',
+				opacity:	0.6,
+				cursor:		'default',
+				color:		'#fff',
+				backgroundColor: '#000',
+				'-webkit-border-radius':'10px',
+				'-moz-border-radius':	'10px',
+				'border-radius':		'10px'
+			},
+
+			// IE issues: 'about:blank' fails on HTTPS and javascript:false is s-l-o-w
+			// (hat tip to Jorge H. N. de Vasconcelos)
+			/*jshint scripturl:true */
+			iframeSrc: /^https/i.test(window.location.href || '') ? 'javascript:false' : 'about:blank',
+
+			// force usage of iframe in non-IE browsers (handy for blocking applets)
+			forceIframe: false,
+
+			// z-index for the blocking overlay
+			baseZ: 1000,
+
+			// set these to true to have the message automatically centered
+			centerX: true, // <-- only effects element blocking (page block controlled via css above)
+			centerY: true,
+
+			// allow body element to be stetched in ie6; this makes blocking look better
+			// on "short" pages.  disable if you wish to prevent changes to the body height
+			allowBodyStretch: true,
+
+			// enable if you want key and mouse events to be disabled for content that is blocked
+			bindEvents: true,
+
+			// be default blockUI will supress tab navigation from leaving blocking content
+			// (if bindEvents is true)
+			constrainTabKey: true,
+
+			// fadeIn time in millis; set to 0 to disable fadeIn on block
+			fadeIn:  200,
+
+			// fadeOut time in millis; set to 0 to disable fadeOut on unblock
+			fadeOut:  400,
+
+			// time in millis to wait before auto-unblocking; set to 0 to disable auto-unblock
+			timeout: 0,
+
+			// disable if you don't want to show the overlay
+			showOverlay: true,
+
+			// if true, focus will be placed in the first available input field when
+			// page blocking
+			focusInput: true,
+
+            // elements that can receive focus
+            focusableElements: ':input:enabled:visible',
+
+			// suppresses the use of overlay styles on FF/Linux (due to performance issues with opacity)
+			// no longer needed in 2012
+			// applyPlatformOpacityRules: true,
+
+			// callback method invoked when fadeIn has completed and blocking message is visible
+			onBlock: null,
+
+			// callback method invoked when unblocking has completed; the callback is
+			// passed the element that has been unblocked (which is the window object for page
+			// blocks) and the options that were passed to the unblock call:
+			//	onUnblock(element, options)
+			onUnblock: null,
+
+			// callback method invoked when the overlay area is clicked.
+			// setting this will turn the cursor to a pointer, otherwise cursor defined in overlayCss will be used.
+			onOverlayClick: null,
+
+			// don't ask; if you really must know: http://groups.google.com/group/jquery-en/browse_thread/thread/36640a8730503595/2f6a79a77a78e493#2f6a79a77a78e493
+			quirksmodeOffsetHack: 4,
+
+			// class name of the message block
+			blockMsgClass: 'blockMsg',
+
+			// if it is already blocked, then ignore it (don't unblock and reblock)
+			ignoreIfBlocked: false
+		};
+
+		// private data and functions follow...
+
+		var pageBlock = null;
+		var pageBlockEls = [];
+
+		function install(el, opts) {
+			var css, themedCSS;
+			var full = (el == window);
+			var msg = (opts && opts.message !== undefined ? opts.message : undefined);
+			opts = $.extend({}, $.blockUI.defaults, opts || {});
+
+			if (opts.ignoreIfBlocked && $(el).data('blockUI.isBlocked'))
+				return;
+
+			opts.overlayCSS = $.extend({}, $.blockUI.defaults.overlayCSS, opts.overlayCSS || {});
+			css = $.extend({}, $.blockUI.defaults.css, opts.css || {});
+			if (opts.onOverlayClick)
+				opts.overlayCSS.cursor = 'pointer';
+
+			themedCSS = $.extend({}, $.blockUI.defaults.themedCSS, opts.themedCSS || {});
+			msg = msg === undefined ? opts.message : msg;
+
+			// remove the current block (if there is one)
+			if (full && pageBlock)
+				remove(window, {fadeOut:0});
+
+			// if an existing element is being used as the blocking content then we capture
+			// its current place in the DOM (and current display style) so we can restore
+			// it when we unblock
+			if (msg && typeof msg != 'string' && (msg.parentNode || msg.jquery)) {
+				var node = msg.jquery ? msg[0] : msg;
+				var data = {};
+				$(el).data('blockUI.history', data);
+				data.el = node;
+				data.parent = node.parentNode;
+				data.display = node.style.display;
+				data.position = node.style.position;
+				if (data.parent)
+					data.parent.removeChild(node);
+			}
+
+			$(el).data('blockUI.onUnblock', opts.onUnblock);
+			var z = opts.baseZ;
+
+			// blockUI uses 3 layers for blocking, for simplicity they are all used on every platform;
+			// layer1 is the iframe layer which is used to supress bleed through of underlying content
+			// layer2 is the overlay layer which has opacity and a wait cursor (by default)
+			// layer3 is the message content that is displayed while blocking
+			var lyr1, lyr2, lyr3, s;
+			if (msie || opts.forceIframe)
+				lyr1 = $('<iframe class="blockUI" style="z-index:'+ (z++) +';display:none;border:none;margin:0;padding:0;position:absolute;width:100%;height:100%;top:0;left:0" src="'+opts.iframeSrc+'"></iframe>');
+			else
+				lyr1 = $('<div class="blockUI" style="display:none"></div>');
+
+			if (opts.theme)
+				lyr2 = $('<div class="blockUI blockOverlay ui-widget-overlay" style="z-index:'+ (z++) +';display:none"></div>');
+			else
+				lyr2 = $('<div class="blockUI blockOverlay" style="z-index:'+ (z++) +';display:none;border:none;margin:0;padding:0;width:100%;height:100%;top:0;left:0"></div>');
+
+			if (opts.theme && full) {
+				s = '<div class="blockUI ' + opts.blockMsgClass + ' blockPage ui-dialog ui-widget ui-corner-all" style="z-index:'+(z+10)+';display:none;position:fixed">';
+				if ( opts.title ) {
+					s += '<div class="ui-widget-header ui-dialog-titlebar ui-corner-all blockTitle">'+(opts.title || '&nbsp;')+'</div>';
+				}
+				s += '<div class="ui-widget-content ui-dialog-content"></div>';
+				s += '</div>';
+			}
+			else if (opts.theme) {
+				s = '<div class="blockUI ' + opts.blockMsgClass + ' blockElement ui-dialog ui-widget ui-corner-all" style="z-index:'+(z+10)+';display:none;position:absolute">';
+				if ( opts.title ) {
+					s += '<div class="ui-widget-header ui-dialog-titlebar ui-corner-all blockTitle">'+(opts.title || '&nbsp;')+'</div>';
+				}
+				s += '<div class="ui-widget-content ui-dialog-content"></div>';
+				s += '</div>';
+			}
+			else if (full) {
+				s = '<div class="blockUI ' + opts.blockMsgClass + ' blockPage" style="z-index:'+(z+10)+';display:none;position:fixed"></div>';
+			}
+			else {
+				s = '<div class="blockUI ' + opts.blockMsgClass + ' blockElement" style="z-index:'+(z+10)+';display:none;position:absolute"></div>';
+			}
+			lyr3 = $(s);
+
+			// if we have a message, style it
+			if (msg) {
+				if (opts.theme) {
+					lyr3.css(themedCSS);
+					lyr3.addClass('ui-widget-content');
+				}
+				else
+					lyr3.css(css);
+			}
+
+			// style the overlay
+			if (!opts.theme /*&& (!opts.applyPlatformOpacityRules)*/)
+				lyr2.css(opts.overlayCSS);
+			lyr2.css('position', full ? 'fixed' : 'absolute');
+
+			// make iframe layer transparent in IE
+			if (msie || opts.forceIframe)
+				lyr1.css('opacity',0.0);
+
+			//$([lyr1[0],lyr2[0],lyr3[0]]).appendTo(full ? 'body' : el);
+			var layers = [lyr1,lyr2,lyr3], $par = full ? $('body') : $(el);
+			$.each(layers, function() {
+				this.appendTo($par);
+			});
+
+			if (opts.theme && opts.draggable && $.fn.draggable) {
+				lyr3.draggable({
+					handle: '.ui-dialog-titlebar',
+					cancel: 'li'
+				});
+			}
+
+			// ie7 must use absolute positioning in quirks mode and to account for activex issues (when scrolling)
+			var expr = setExpr && (!$.support.boxModel || $('object,embed', full ? null : el).length > 0);
+			if (ie6 || expr) {
+				// give body 100% height
+				if (full && opts.allowBodyStretch && $.support.boxModel)
+					$('html,body').css('height','100%');
+
+				// fix ie6 issue when blocked element has a border width
+				if ((ie6 || !$.support.boxModel) && !full) {
+					var t = sz(el,'borderTopWidth'), l = sz(el,'borderLeftWidth');
+					var fixT = t ? '(0 - '+t+')' : 0;
+					var fixL = l ? '(0 - '+l+')' : 0;
+				}
+
+				// simulate fixed position
+				$.each(layers, function(i,o) {
+					var s = o[0].style;
+					s.position = 'absolute';
+					if (i < 2) {
+						if (full)
+							s.setExpression('height','Math.max(document.body.scrollHeight, document.body.offsetHeight) - (jQuery.support.boxModel?0:'+opts.quirksmodeOffsetHack+') + "px"');
+						else
+							s.setExpression('height','this.parentNode.offsetHeight + "px"');
+						if (full)
+							s.setExpression('width','jQuery.support.boxModel && document.documentElement.clientWidth || document.body.clientWidth + "px"');
+						else
+							s.setExpression('width','this.parentNode.offsetWidth + "px"');
+						if (fixL) s.setExpression('left', fixL);
+						if (fixT) s.setExpression('top', fixT);
+					}
+					else if (opts.centerY) {
+						if (full) s.setExpression('top','(document.documentElement.clientHeight || document.body.clientHeight) / 2 - (this.offsetHeight / 2) + (blah = document.documentElement.scrollTop ? document.documentElement.scrollTop : document.body.scrollTop) + "px"');
+						s.marginTop = 0;
+					}
+					else if (!opts.centerY && full) {
+						var top = (opts.css && opts.css.top) ? parseInt(opts.css.top, 10) : 0;
+						var expression = '((document.documentElement.scrollTop ? document.documentElement.scrollTop : document.body.scrollTop) + '+top+') + "px"';
+						s.setExpression('top',expression);
+					}
+				});
+			}
+
+			// show the message
+			if (msg) {
+				if (opts.theme)
+					lyr3.find('.ui-widget-content').append(msg);
+				else
+					lyr3.append(msg);
+				if (msg.jquery || msg.nodeType)
+					$(msg).show();
+			}
+
+			if ((msie || opts.forceIframe) && opts.showOverlay)
+				lyr1.show(); // opacity is zero
+			if (opts.fadeIn) {
+				var cb = opts.onBlock ? opts.onBlock : noOp;
+				var cb1 = (opts.showOverlay && !msg) ? cb : noOp;
+				var cb2 = msg ? cb : noOp;
+				if (opts.showOverlay)
+					lyr2._fadeIn(opts.fadeIn, cb1);
+				if (msg)
+					lyr3._fadeIn(opts.fadeIn, cb2);
+			}
+			else {
+				if (opts.showOverlay)
+					lyr2.show();
+				if (msg)
+					lyr3.show();
+				if (opts.onBlock)
+					opts.onBlock.bind(lyr3)();
+			}
+
+			// bind key and mouse events
+			bind(1, el, opts);
+
+			if (full) {
+				pageBlock = lyr3[0];
+				pageBlockEls = $(opts.focusableElements,pageBlock);
+				if (opts.focusInput)
+					setTimeout(focus, 20);
+			}
+			else
+				center(lyr3[0], opts.centerX, opts.centerY);
+
+			if (opts.timeout) {
+				// auto-unblock
+				var to = setTimeout(function() {
+					if (full)
+						$.unblockUI(opts);
+					else
+						$(el).unblock(opts);
+				}, opts.timeout);
+				$(el).data('blockUI.timeout', to);
+			}
+		}
+
+		// remove the block
+		function remove(el, opts) {
+			var count;
+			var full = (el == window);
+			var $el = $(el);
+			var data = $el.data('blockUI.history');
+			var to = $el.data('blockUI.timeout');
+			if (to) {
+				clearTimeout(to);
+				$el.removeData('blockUI.timeout');
+			}
+			opts = $.extend({}, $.blockUI.defaults, opts || {});
+			bind(0, el, opts); // unbind events
+
+			if (opts.onUnblock === null) {
+				opts.onUnblock = $el.data('blockUI.onUnblock');
+				$el.removeData('blockUI.onUnblock');
+			}
+
+			var els;
+			if (full) // crazy selector to handle odd field errors in ie6/7
+				els = $('body').children().filter('.blockUI').add('body > .blockUI');
+			else
+				els = $el.find('>.blockUI');
+
+			// fix cursor issue
+			if ( opts.cursorReset ) {
+				if ( els.length > 1 )
+					els[1].style.cursor = opts.cursorReset;
+				if ( els.length > 2 )
+					els[2].style.cursor = opts.cursorReset;
+			}
+
+			if (full)
+				pageBlock = pageBlockEls = null;
+
+			if (opts.fadeOut) {
+				count = els.length;
+				els.stop().fadeOut(opts.fadeOut, function() {
+					if ( --count === 0)
+						reset(els,data,opts,el);
+				});
+			}
+			else
+				reset(els, data, opts, el);
+		}
+
+		// move blocking element back into the DOM where it started
+		function reset(els,data,opts,el) {
+			var $el = $(el);
+			if ( $el.data('blockUI.isBlocked') )
+				return;
+
+			els.each(function(i,o) {
+				// remove via DOM calls so we don't lose event handlers
+				if (this.parentNode)
+					this.parentNode.removeChild(this);
+			});
+
+			if (data && data.el) {
+				data.el.style.display = data.display;
+				data.el.style.position = data.position;
+				data.el.style.cursor = 'default'; // #59
+				if (data.parent)
+					data.parent.appendChild(data.el);
+				$el.removeData('blockUI.history');
+			}
+
+			if ($el.data('blockUI.static')) {
+				$el.css('position', 'static'); // #22
+			}
+
+			if (typeof opts.onUnblock == 'function')
+				opts.onUnblock(el,opts);
+
+			// fix issue in Safari 6 where block artifacts remain until reflow
+			var body = $(document.body), w = body.width(), cssW = body[0].style.width;
+			body.width(w-1).width(w);
+			body[0].style.width = cssW;
+		}
+
+		// bind/unbind the handler
+		function bind(b, el, opts) {
+			var full = el == window, $el = $(el);
+
+			// don't bother unbinding if there is nothing to unbind
+			if (!b && (full && !pageBlock || !full && !$el.data('blockUI.isBlocked')))
+				return;
+
+			$el.data('blockUI.isBlocked', b);
+
+			// don't bind events when overlay is not in use or if bindEvents is false
+			if (!full || !opts.bindEvents || (b && !opts.showOverlay))
+				return;
+
+			// bind anchors and inputs for mouse and key events
+			var events = 'mousedown mouseup keydown keypress keyup touchstart touchend touchmove';
+			if (b)
+				$(document).bind(events, opts, handler);
+			else
+				$(document).unbind(events, handler);
+
+		// former impl...
+		//		var $e = $('a,:input');
+		//		b ? $e.bind(events, opts, handler) : $e.unbind(events, handler);
+		}
+
+		// event handler to suppress keyboard/mouse events when blocking
+		function handler(e) {
+			// allow tab navigation (conditionally)
+			if (e.type === 'keydown' && e.keyCode && e.keyCode == 9) {
+				if (pageBlock && e.data.constrainTabKey) {
+					var els = pageBlockEls;
+					var fwd = !e.shiftKey && e.target === els[els.length-1];
+					var back = e.shiftKey && e.target === els[0];
+					if (fwd || back) {
+						setTimeout(function(){focus(back);},10);
+						return false;
+					}
+				}
+			}
+			var opts = e.data;
+			var target = $(e.target);
+			if (target.hasClass('blockOverlay') && opts.onOverlayClick)
+				opts.onOverlayClick(e);
+
+			// allow events within the message content
+			if (target.parents('div.' + opts.blockMsgClass).length > 0)
+				return true;
+
+			// allow events for content that is not being blocked
+			return target.parents().children().filter('div.blockUI').length === 0;
+		}
+
+		function focus(back) {
+			if (!pageBlockEls)
+				return;
+			var e = pageBlockEls[back===true ? pageBlockEls.length-1 : 0];
+			if (e)
+				e.focus();
+		}
+
+		function center(el, x, y) {
+			var p = el.parentNode, s = el.style;
+			var l = ((p.offsetWidth - el.offsetWidth)/2) - sz(p,'borderLeftWidth');
+			var t = ((p.offsetHeight - el.offsetHeight)/2) - sz(p,'borderTopWidth');
+			if (x) s.left = l > 0 ? (l+'px') : '0';
+			if (y) s.top  = t > 0 ? (t+'px') : '0';
+		}
+
+		function sz(el, p) {
+			return parseInt($.css(el,p),10)||0;
+		}
+
+	}
+
+
+	/*global define:true */
+	if (typeof define === 'function' && define.amd && define.amd.jQuery) {
+		define(['jquery'], setup);
+	} else {
+		setup(jQuery);
+	}
+
+})();
+
+/*! Hammer.JS - v2.0.4 - 2014-09-28
+ * http://hammerjs.github.io/
+ *
+ * Copyright (c) 2014 Jorik Tangelder;
+ * Licensed under the MIT license */
+(function(window, document, exportName, undefined) {
+  'use strict';
+
+var VENDOR_PREFIXES = ['', 'webkit', 'moz', 'MS', 'ms', 'o'];
+var TEST_ELEMENT = document.createElement('div');
+
+var TYPE_FUNCTION = 'function';
+
+var round = Math.round;
+var abs = Math.abs;
+var now = Date.now;
+
+/**
+ * set a timeout with a given scope
+ * @param {Function} fn
+ * @param {Number} timeout
+ * @param {Object} context
+ * @returns {number}
+ */
+function setTimeoutContext(fn, timeout, context) {
+    return setTimeout(bindFn(fn, context), timeout);
+}
+
+/**
+ * if the argument is an array, we want to execute the fn on each entry
+ * if it aint an array we don't want to do a thing.
+ * this is used by all the methods that accept a single and array argument.
+ * @param {*|Array} arg
+ * @param {String} fn
+ * @param {Object} [context]
+ * @returns {Boolean}
+ */
+function invokeArrayArg(arg, fn, context) {
+    if (Array.isArray(arg)) {
+        each(arg, context[fn], context);
+        return true;
+    }
+    return false;
+}
+
+/**
+ * walk objects and arrays
+ * @param {Object} obj
+ * @param {Function} iterator
+ * @param {Object} context
+ */
+function each(obj, iterator, context) {
+    var i;
+
+    if (!obj) {
+        return;
+    }
+
+    if (obj.forEach) {
+        obj.forEach(iterator, context);
+    } else if (obj.length !== undefined) {
+        i = 0;
+        while (i < obj.length) {
+            iterator.call(context, obj[i], i, obj);
+            i++;
+        }
+    } else {
+        for (i in obj) {
+            obj.hasOwnProperty(i) && iterator.call(context, obj[i], i, obj);
+        }
+    }
+}
+
+/**
+ * extend object.
+ * means that properties in dest will be overwritten by the ones in src.
+ * @param {Object} dest
+ * @param {Object} src
+ * @param {Boolean} [merge]
+ * @returns {Object} dest
+ */
+function extend(dest, src, merge) {
+    var keys = Object.keys(src);
+    var i = 0;
+    while (i < keys.length) {
+        if (!merge || (merge && dest[keys[i]] === undefined)) {
+            dest[keys[i]] = src[keys[i]];
+        }
+        i++;
+    }
+    return dest;
+}
+
+/**
+ * merge the values from src in the dest.
+ * means that properties that exist in dest will not be overwritten by src
+ * @param {Object} dest
+ * @param {Object} src
+ * @returns {Object} dest
+ */
+function merge(dest, src) {
+    return extend(dest, src, true);
+}
+
+/**
+ * simple class inheritance
+ * @param {Function} child
+ * @param {Function} base
+ * @param {Object} [properties]
+ */
+function inherit(child, base, properties) {
+    var baseP = base.prototype,
+        childP;
+
+    childP = child.prototype = Object.create(baseP);
+    childP.constructor = child;
+    childP._super = baseP;
+
+    if (properties) {
+        extend(childP, properties);
+    }
+}
+
+/**
+ * simple function bind
+ * @param {Function} fn
+ * @param {Object} context
+ * @returns {Function}
+ */
+function bindFn(fn, context) {
+    return function boundFn() {
+        return fn.apply(context, arguments);
+    };
+}
+
+/**
+ * let a boolean value also be a function that must return a boolean
+ * this first item in args will be used as the context
+ * @param {Boolean|Function} val
+ * @param {Array} [args]
+ * @returns {Boolean}
+ */
+function boolOrFn(val, args) {
+    if (typeof val == TYPE_FUNCTION) {
+        return val.apply(args ? args[0] || undefined : undefined, args);
+    }
+    return val;
+}
+
+/**
+ * use the val2 when val1 is undefined
+ * @param {*} val1
+ * @param {*} val2
+ * @returns {*}
+ */
+function ifUndefined(val1, val2) {
+    return (val1 === undefined) ? val2 : val1;
+}
+
+/**
+ * addEventListener with multiple events at once
+ * @param {EventTarget} target
+ * @param {String} types
+ * @param {Function} handler
+ */
+function addEventListeners(target, types, handler) {
+    each(splitStr(types), function(type) {
+        target.addEventListener(type, handler, false);
+    });
+}
+
+/**
+ * removeEventListener with multiple events at once
+ * @param {EventTarget} target
+ * @param {String} types
+ * @param {Function} handler
+ */
+function removeEventListeners(target, types, handler) {
+    each(splitStr(types), function(type) {
+        target.removeEventListener(type, handler, false);
+    });
+}
+
+/**
+ * find if a node is in the given parent
+ * @method hasParent
+ * @param {HTMLElement} node
+ * @param {HTMLElement} parent
+ * @return {Boolean} found
+ */
+function hasParent(node, parent) {
+    while (node) {
+        if (node == parent) {
+            return true;
+        }
+        node = node.parentNode;
+    }
+    return false;
+}
+
+/**
+ * small indexOf wrapper
+ * @param {String} str
+ * @param {String} find
+ * @returns {Boolean} found
+ */
+function inStr(str, find) {
+    return str.indexOf(find) > -1;
+}
+
+/**
+ * split string on whitespace
+ * @param {String} str
+ * @returns {Array} words
+ */
+function splitStr(str) {
+    return str.trim().split(/\s+/g);
+}
+
+/**
+ * find if a array contains the object using indexOf or a simple polyFill
+ * @param {Array} src
+ * @param {String} find
+ * @param {String} [findByKey]
+ * @return {Boolean|Number} false when not found, or the index
+ */
+function inArray(src, find, findByKey) {
+    if (src.indexOf && !findByKey) {
+        return src.indexOf(find);
+    } else {
+        var i = 0;
+        while (i < src.length) {
+            if ((findByKey && src[i][findByKey] == find) || (!findByKey && src[i] === find)) {
+                return i;
+            }
+            i++;
+        }
+        return -1;
+    }
+}
+
+/**
+ * convert array-like objects to real arrays
+ * @param {Object} obj
+ * @returns {Array}
+ */
+function toArray(obj) {
+    return Array.prototype.slice.call(obj, 0);
+}
+
+/**
+ * unique array with objects based on a key (like 'id') or just by the array's value
+ * @param {Array} src [{id:1},{id:2},{id:1}]
+ * @param {String} [key]
+ * @param {Boolean} [sort=False]
+ * @returns {Array} [{id:1},{id:2}]
+ */
+function uniqueArray(src, key, sort) {
+    var results = [];
+    var values = [];
+    var i = 0;
+
+    while (i < src.length) {
+        var val = key ? src[i][key] : src[i];
+        if (inArray(values, val) < 0) {
+            results.push(src[i]);
+        }
+        values[i] = val;
+        i++;
+    }
+
+    if (sort) {
+        if (!key) {
+            results = results.sort();
+        } else {
+            results = results.sort(function sortUniqueArray(a, b) {
+                return a[key] > b[key];
+            });
+        }
+    }
+
+    return results;
+}
+
+/**
+ * get the prefixed property
+ * @param {Object} obj
+ * @param {String} property
+ * @returns {String|Undefined} prefixed
+ */
+function prefixed(obj, property) {
+    var prefix, prop;
+    var camelProp = property[0].toUpperCase() + property.slice(1);
+
+    var i = 0;
+    while (i < VENDOR_PREFIXES.length) {
+        prefix = VENDOR_PREFIXES[i];
+        prop = (prefix) ? prefix + camelProp : property;
+
+        if (prop in obj) {
+            return prop;
+        }
+        i++;
+    }
+    return undefined;
+}
+
+/**
+ * get a unique id
+ * @returns {number} uniqueId
+ */
+var _uniqueId = 1;
+function uniqueId() {
+    return _uniqueId++;
+}
+
+/**
+ * get the window object of an element
+ * @param {HTMLElement} element
+ * @returns {DocumentView|Window}
+ */
+function getWindowForElement(element) {
+    var doc = element.ownerDocument;
+    return (doc.defaultView || doc.parentWindow);
+}
+
+var MOBILE_REGEX = /mobile|tablet|ip(ad|hone|od)|android/i;
+
+var SUPPORT_TOUCH = ('ontouchstart' in window);
+var SUPPORT_POINTER_EVENTS = prefixed(window, 'PointerEvent') !== undefined;
+var SUPPORT_ONLY_TOUCH = SUPPORT_TOUCH && MOBILE_REGEX.test(navigator.userAgent);
+
+var INPUT_TYPE_TOUCH = 'touch';
+var INPUT_TYPE_PEN = 'pen';
+var INPUT_TYPE_MOUSE = 'mouse';
+var INPUT_TYPE_KINECT = 'kinect';
+
+var COMPUTE_INTERVAL = 25;
+
+var INPUT_START = 1;
+var INPUT_MOVE = 2;
+var INPUT_END = 4;
+var INPUT_CANCEL = 8;
+
+var DIRECTION_NONE = 1;
+var DIRECTION_LEFT = 2;
+var DIRECTION_RIGHT = 4;
+var DIRECTION_UP = 8;
+var DIRECTION_DOWN = 16;
+
+var DIRECTION_HORIZONTAL = DIRECTION_LEFT | DIRECTION_RIGHT;
+var DIRECTION_VERTICAL = DIRECTION_UP | DIRECTION_DOWN;
+var DIRECTION_ALL = DIRECTION_HORIZONTAL | DIRECTION_VERTICAL;
+
+var PROPS_XY = ['x', 'y'];
+var PROPS_CLIENT_XY = ['clientX', 'clientY'];
+
+/**
+ * create new input type manager
+ * @param {Manager} manager
+ * @param {Function} callback
+ * @returns {Input}
+ * @constructor
+ */
+function Input(manager, callback) {
+    var self = this;
+    this.manager = manager;
+    this.callback = callback;
+    this.element = manager.element;
+    this.target = manager.options.inputTarget;
+
+    // smaller wrapper around the handler, for the scope and the enabled state of the manager,
+    // so when disabled the input events are completely bypassed.
+    this.domHandler = function(ev) {
+        if (boolOrFn(manager.options.enable, [manager])) {
+            self.handler(ev);
+        }
+    };
+
+    this.init();
+
+}
+
+Input.prototype = {
+    /**
+     * should handle the inputEvent data and trigger the callback
+     * @virtual
+     */
+    handler: function() { },
+
+    /**
+     * bind the events
+     */
+    init: function() {
+        this.evEl && addEventListeners(this.element, this.evEl, this.domHandler);
+        this.evTarget && addEventListeners(this.target, this.evTarget, this.domHandler);
+        this.evWin && addEventListeners(getWindowForElement(this.element), this.evWin, this.domHandler);
+    },
+
+    /**
+     * unbind the events
+     */
+    destroy: function() {
+        this.evEl && removeEventListeners(this.element, this.evEl, this.domHandler);
+        this.evTarget && removeEventListeners(this.target, this.evTarget, this.domHandler);
+        this.evWin && removeEventListeners(getWindowForElement(this.element), this.evWin, this.domHandler);
+    }
+};
+
+/**
+ * create new input type manager
+ * called by the Manager constructor
+ * @param {Hammer} manager
+ * @returns {Input}
+ */
+function createInputInstance(manager) {
+    var Type;
+    var inputClass = manager.options.inputClass;
+
+    if (inputClass) {
+        Type = inputClass;
+    } else if (SUPPORT_POINTER_EVENTS) {
+        Type = PointerEventInput;
+    } else if (SUPPORT_ONLY_TOUCH) {
+        Type = TouchInput;
+    } else if (!SUPPORT_TOUCH) {
+        Type = MouseInput;
+    } else {
+        Type = TouchMouseInput;
+    }
+    return new (Type)(manager, inputHandler);
+}
+
+/**
+ * handle input events
+ * @param {Manager} manager
+ * @param {String} eventType
+ * @param {Object} input
+ */
+function inputHandler(manager, eventType, input) {
+    var pointersLen = input.pointers.length;
+    var changedPointersLen = input.changedPointers.length;
+    var isFirst = (eventType & INPUT_START && (pointersLen - changedPointersLen === 0));
+    var isFinal = (eventType & (INPUT_END | INPUT_CANCEL) && (pointersLen - changedPointersLen === 0));
+
+    input.isFirst = !!isFirst;
+    input.isFinal = !!isFinal;
+
+    if (isFirst) {
+        manager.session = {};
+    }
+
+    // source event is the normalized value of the domEvents
+    // like 'touchstart, mouseup, pointerdown'
+    input.eventType = eventType;
+
+    // compute scale, rotation etc
+    computeInputData(manager, input);
+
+    // emit secret event
+    manager.emit('hammer.input', input);
+
+    manager.recognize(input);
+    manager.session.prevInput = input;
+}
+
+/**
+ * extend the data with some usable properties like scale, rotate, velocity etc
+ * @param {Object} manager
+ * @param {Object} input
+ */
+function computeInputData(manager, input) {
+    var session = manager.session;
+    var pointers = input.pointers;
+    var pointersLength = pointers.length;
+
+    // store the first input to calculate the distance and direction
+    if (!session.firstInput) {
+        session.firstInput = simpleCloneInputData(input);
+    }
+
+    // to compute scale and rotation we need to store the multiple touches
+    if (pointersLength > 1 && !session.firstMultiple) {
+        session.firstMultiple = simpleCloneInputData(input);
+    } else if (pointersLength === 1) {
+        session.firstMultiple = false;
+    }
+
+    var firstInput = session.firstInput;
+    var firstMultiple = session.firstMultiple;
+    var offsetCenter = firstMultiple ? firstMultiple.center : firstInput.center;
+
+    var center = input.center = getCenter(pointers);
+    input.timeStamp = now();
+    input.deltaTime = input.timeStamp - firstInput.timeStamp;
+
+    input.angle = getAngle(offsetCenter, center);
+    input.distance = getDistance(offsetCenter, center);
+
+    computeDeltaXY(session, input);
+    input.offsetDirection = getDirection(input.deltaX, input.deltaY);
+
+    input.scale = firstMultiple ? getScale(firstMultiple.pointers, pointers) : 1;
+    input.rotation = firstMultiple ? getRotation(firstMultiple.pointers, pointers) : 0;
+
+    computeIntervalInputData(session, input);
+
+    // find the correct target
+    var target = manager.element;
+    if (hasParent(input.srcEvent.target, target)) {
+        target = input.srcEvent.target;
+    }
+    input.target = target;
+}
+
+function computeDeltaXY(session, input) {
+    var center = input.center;
+    var offset = session.offsetDelta || {};
+    var prevDelta = session.prevDelta || {};
+    var prevInput = session.prevInput || {};
+
+    if (input.eventType === INPUT_START || prevInput.eventType === INPUT_END) {
+        prevDelta = session.prevDelta = {
+            x: prevInput.deltaX || 0,
+            y: prevInput.deltaY || 0
+        };
+
+        offset = session.offsetDelta = {
+            x: center.x,
+            y: center.y
+        };
+    }
+
+    input.deltaX = prevDelta.x + (center.x - offset.x);
+    input.deltaY = prevDelta.y + (center.y - offset.y);
+}
+
+/**
+ * velocity is calculated every x ms
+ * @param {Object} session
+ * @param {Object} input
+ */
+function computeIntervalInputData(session, input) {
+    var last = session.lastInterval || input,
+        deltaTime = input.timeStamp - last.timeStamp,
+        velocity, velocityX, velocityY, direction;
+
+    if (input.eventType != INPUT_CANCEL && (deltaTime > COMPUTE_INTERVAL || last.velocity === undefined)) {
+        var deltaX = last.deltaX - input.deltaX;
+        var deltaY = last.deltaY - input.deltaY;
+
+        var v = getVelocity(deltaTime, deltaX, deltaY);
+        velocityX = v.x;
+        velocityY = v.y;
+        velocity = (abs(v.x) > abs(v.y)) ? v.x : v.y;
+        direction = getDirection(deltaX, deltaY);
+
+        session.lastInterval = input;
+    } else {
+        // use latest velocity info if it doesn't overtake a minimum period
+        velocity = last.velocity;
+        velocityX = last.velocityX;
+        velocityY = last.velocityY;
+        direction = last.direction;
+    }
+
+    input.velocity = velocity;
+    input.velocityX = velocityX;
+    input.velocityY = velocityY;
+    input.direction = direction;
+}
+
+/**
+ * create a simple clone from the input used for storage of firstInput and firstMultiple
+ * @param {Object} input
+ * @returns {Object} clonedInputData
+ */
+function simpleCloneInputData(input) {
+    // make a simple copy of the pointers because we will get a reference if we don't
+    // we only need clientXY for the calculations
+    var pointers = [];
+    var i = 0;
+    while (i < input.pointers.length) {
+        pointers[i] = {
+            clientX: round(input.pointers[i].clientX),
+            clientY: round(input.pointers[i].clientY)
+        };
+        i++;
+    }
+
+    return {
+        timeStamp: now(),
+        pointers: pointers,
+        center: getCenter(pointers),
+        deltaX: input.deltaX,
+        deltaY: input.deltaY
+    };
+}
+
+/**
+ * get the center of all the pointers
+ * @param {Array} pointers
+ * @return {Object} center contains `x` and `y` properties
+ */
+function getCenter(pointers) {
+    var pointersLength = pointers.length;
+
+    // no need to loop when only one touch
+    if (pointersLength === 1) {
+        return {
+            x: round(pointers[0].clientX),
+            y: round(pointers[0].clientY)
+        };
+    }
+
+    var x = 0, y = 0, i = 0;
+    while (i < pointersLength) {
+        x += pointers[i].clientX;
+        y += pointers[i].clientY;
+        i++;
+    }
+
+    return {
+        x: round(x / pointersLength),
+        y: round(y / pointersLength)
+    };
+}
+
+/**
+ * calculate the velocity between two points. unit is in px per ms.
+ * @param {Number} deltaTime
+ * @param {Number} x
+ * @param {Number} y
+ * @return {Object} velocity `x` and `y`
+ */
+function getVelocity(deltaTime, x, y) {
+    return {
+        x: x / deltaTime || 0,
+        y: y / deltaTime || 0
+    };
+}
+
+/**
+ * get the direction between two points
+ * @param {Number} x
+ * @param {Number} y
+ * @return {Number} direction
+ */
+function getDirection(x, y) {
+    if (x === y) {
+        return DIRECTION_NONE;
+    }
+
+    if (abs(x) >= abs(y)) {
+        return x > 0 ? DIRECTION_LEFT : DIRECTION_RIGHT;
+    }
+    return y > 0 ? DIRECTION_UP : DIRECTION_DOWN;
+}
+
+/**
+ * calculate the absolute distance between two points
+ * @param {Object} p1 {x, y}
+ * @param {Object} p2 {x, y}
+ * @param {Array} [props] containing x and y keys
+ * @return {Number} distance
+ */
+function getDistance(p1, p2, props) {
+    if (!props) {
+        props = PROPS_XY;
+    }
+    var x = p2[props[0]] - p1[props[0]],
+        y = p2[props[1]] - p1[props[1]];
+
+    return Math.sqrt((x * x) + (y * y));
+}
+
+/**
+ * calculate the angle between two coordinates
+ * @param {Object} p1
+ * @param {Object} p2
+ * @param {Array} [props] containing x and y keys
+ * @return {Number} angle
+ */
+function getAngle(p1, p2, props) {
+    if (!props) {
+        props = PROPS_XY;
+    }
+    var x = p2[props[0]] - p1[props[0]],
+        y = p2[props[1]] - p1[props[1]];
+    return Math.atan2(y, x) * 180 / Math.PI;
+}
+
+/**
+ * calculate the rotation degrees between two pointersets
+ * @param {Array} start array of pointers
+ * @param {Array} end array of pointers
+ * @return {Number} rotation
+ */
+function getRotation(start, end) {
+    return getAngle(end[1], end[0], PROPS_CLIENT_XY) - getAngle(start[1], start[0], PROPS_CLIENT_XY);
+}
+
+/**
+ * calculate the scale factor between two pointersets
+ * no scale is 1, and goes down to 0 when pinched together, and bigger when pinched out
+ * @param {Array} start array of pointers
+ * @param {Array} end array of pointers
+ * @return {Number} scale
+ */
+function getScale(start, end) {
+    return getDistance(end[0], end[1], PROPS_CLIENT_XY) / getDistance(start[0], start[1], PROPS_CLIENT_XY);
+}
+
+var MOUSE_INPUT_MAP = {
+    mousedown: INPUT_START,
+    mousemove: INPUT_MOVE,
+    mouseup: INPUT_END
+};
+
+var MOUSE_ELEMENT_EVENTS = 'mousedown';
+var MOUSE_WINDOW_EVENTS = 'mousemove mouseup';
+
+/**
+ * Mouse events input
+ * @constructor
+ * @extends Input
+ */
+function MouseInput() {
+    this.evEl = MOUSE_ELEMENT_EVENTS;
+    this.evWin = MOUSE_WINDOW_EVENTS;
+
+    this.allow = true; // used by Input.TouchMouse to disable mouse events
+    this.pressed = false; // mousedown state
+
+    Input.apply(this, arguments);
+}
+
+inherit(MouseInput, Input, {
+    /**
+     * handle mouse events
+     * @param {Object} ev
+     */
+    handler: function MEhandler(ev) {
+        var eventType = MOUSE_INPUT_MAP[ev.type];
+
+        // on start we want to have the left mouse button down
+        if (eventType & INPUT_START && ev.button === 0) {
+            this.pressed = true;
+        }
+
+        if (eventType & INPUT_MOVE && ev.which !== 1) {
+            eventType = INPUT_END;
+        }
+
+        // mouse must be down, and mouse events are allowed (see the TouchMouse input)
+        if (!this.pressed || !this.allow) {
+            return;
+        }
+
+        if (eventType & INPUT_END) {
+            this.pressed = false;
+        }
+
+        this.callback(this.manager, eventType, {
+            pointers: [ev],
+            changedPointers: [ev],
+            pointerType: INPUT_TYPE_MOUSE,
+            srcEvent: ev
+        });
+    }
+});
+
+var POINTER_INPUT_MAP = {
+    pointerdown: INPUT_START,
+    pointermove: INPUT_MOVE,
+    pointerup: INPUT_END,
+    pointercancel: INPUT_CANCEL,
+    pointerout: INPUT_CANCEL
+};
+
+// in IE10 the pointer types is defined as an enum
+var IE10_POINTER_TYPE_ENUM = {
+    2: INPUT_TYPE_TOUCH,
+    3: INPUT_TYPE_PEN,
+    4: INPUT_TYPE_MOUSE,
+    5: INPUT_TYPE_KINECT // see https://twitter.com/jacobrossi/status/480596438489890816
+};
+
+var POINTER_ELEMENT_EVENTS = 'pointerdown';
+var POINTER_WINDOW_EVENTS = 'pointermove pointerup pointercancel';
+
+// IE10 has prefixed support, and case-sensitive
+if (window.MSPointerEvent) {
+    POINTER_ELEMENT_EVENTS = 'MSPointerDown';
+    POINTER_WINDOW_EVENTS = 'MSPointerMove MSPointerUp MSPointerCancel';
+}
+
+/**
+ * Pointer events input
+ * @constructor
+ * @extends Input
+ */
+function PointerEventInput() {
+    this.evEl = POINTER_ELEMENT_EVENTS;
+    this.evWin = POINTER_WINDOW_EVENTS;
+
+    Input.apply(this, arguments);
+
+    this.store = (this.manager.session.pointerEvents = []);
+}
+
+inherit(PointerEventInput, Input, {
+    /**
+     * handle mouse events
+     * @param {Object} ev
+     */
+    handler: function PEhandler(ev) {
+        var store = this.store;
+        var removePointer = false;
+
+        var eventTypeNormalized = ev.type.toLowerCase().replace('ms', '');
+        var eventType = POINTER_INPUT_MAP[eventTypeNormalized];
+        var pointerType = IE10_POINTER_TYPE_ENUM[ev.pointerType] || ev.pointerType;
+
+        var isTouch = (pointerType == INPUT_TYPE_TOUCH);
+
+        // get index of the event in the store
+        var storeIndex = inArray(store, ev.pointerId, 'pointerId');
+
+        // start and mouse must be down
+        if (eventType & INPUT_START && (ev.button === 0 || isTouch)) {
+            if (storeIndex < 0) {
+                store.push(ev);
+                storeIndex = store.length - 1;
+            }
+        } else if (eventType & (INPUT_END | INPUT_CANCEL)) {
+            removePointer = true;
+        }
+
+        // it not found, so the pointer hasn't been down (so it's probably a hover)
+        if (storeIndex < 0) {
+            return;
+        }
+
+        // update the event in the store
+        store[storeIndex] = ev;
+
+        this.callback(this.manager, eventType, {
+            pointers: store,
+            changedPointers: [ev],
+            pointerType: pointerType,
+            srcEvent: ev
+        });
+
+        if (removePointer) {
+            // remove from the store
+            store.splice(storeIndex, 1);
+        }
+    }
+});
+
+var SINGLE_TOUCH_INPUT_MAP = {
+    touchstart: INPUT_START,
+    touchmove: INPUT_MOVE,
+    touchend: INPUT_END,
+    touchcancel: INPUT_CANCEL
+};
+
+var SINGLE_TOUCH_TARGET_EVENTS = 'touchstart';
+var SINGLE_TOUCH_WINDOW_EVENTS = 'touchstart touchmove touchend touchcancel';
+
+/**
+ * Touch events input
+ * @constructor
+ * @extends Input
+ */
+function SingleTouchInput() {
+    this.evTarget = SINGLE_TOUCH_TARGET_EVENTS;
+    this.evWin = SINGLE_TOUCH_WINDOW_EVENTS;
+    this.started = false;
+
+    Input.apply(this, arguments);
+}
+
+inherit(SingleTouchInput, Input, {
+    handler: function TEhandler(ev) {
+        var type = SINGLE_TOUCH_INPUT_MAP[ev.type];
+
+        // should we handle the touch events?
+        if (type === INPUT_START) {
+            this.started = true;
+        }
+
+        if (!this.started) {
+            return;
+        }
+
+        var touches = normalizeSingleTouches.call(this, ev, type);
+
+        // when done, reset the started state
+        if (type & (INPUT_END | INPUT_CANCEL) && touches[0].length - touches[1].length === 0) {
+            this.started = false;
+        }
+
+        this.callback(this.manager, type, {
+            pointers: touches[0],
+            changedPointers: touches[1],
+            pointerType: INPUT_TYPE_TOUCH,
+            srcEvent: ev
+        });
+    }
+});
+
+/**
+ * @this {TouchInput}
+ * @param {Object} ev
+ * @param {Number} type flag
+ * @returns {undefined|Array} [all, changed]
+ */
+function normalizeSingleTouches(ev, type) {
+    var all = toArray(ev.touches);
+    var changed = toArray(ev.changedTouches);
+
+    if (type & (INPUT_END | INPUT_CANCEL)) {
+        all = uniqueArray(all.concat(changed), 'identifier', true);
+    }
+
+    return [all, changed];
+}
+
+var TOUCH_INPUT_MAP = {
+    touchstart: INPUT_START,
+    touchmove: INPUT_MOVE,
+    touchend: INPUT_END,
+    touchcancel: INPUT_CANCEL
+};
+
+var TOUCH_TARGET_EVENTS = 'touchstart touchmove touchend touchcancel';
+
+/**
+ * Multi-user touch events input
+ * @constructor
+ * @extends Input
+ */
+function TouchInput() {
+    this.evTarget = TOUCH_TARGET_EVENTS;
+    this.targetIds = {};
+
+    Input.apply(this, arguments);
+}
+
+inherit(TouchInput, Input, {
+    handler: function MTEhandler(ev) {
+        var type = TOUCH_INPUT_MAP[ev.type];
+        var touches = getTouches.call(this, ev, type);
+        if (!touches) {
+            return;
+        }
+
+        this.callback(this.manager, type, {
+            pointers: touches[0],
+            changedPointers: touches[1],
+            pointerType: INPUT_TYPE_TOUCH,
+            srcEvent: ev
+        });
+    }
+});
+
+/**
+ * @this {TouchInput}
+ * @param {Object} ev
+ * @param {Number} type flag
+ * @returns {undefined|Array} [all, changed]
+ */
+function getTouches(ev, type) {
+    var allTouches = toArray(ev.touches);
+    var targetIds = this.targetIds;
+
+    // when there is only one touch, the process can be simplified
+    if (type & (INPUT_START | INPUT_MOVE) && allTouches.length === 1) {
+        targetIds[allTouches[0].identifier] = true;
+        return [allTouches, allTouches];
+    }
+
+    var i,
+        targetTouches,
+        changedTouches = toArray(ev.changedTouches),
+        changedTargetTouches = [],
+        target = this.target;
+
+    // get target touches from touches
+    targetTouches = allTouches.filter(function(touch) {
+        return hasParent(touch.target, target);
+    });
+
+    // collect touches
+    if (type === INPUT_START) {
+        i = 0;
+        while (i < targetTouches.length) {
+            targetIds[targetTouches[i].identifier] = true;
+            i++;
+        }
+    }
+
+    // filter changed touches to only contain touches that exist in the collected target ids
+    i = 0;
+    while (i < changedTouches.length) {
+        if (targetIds[changedTouches[i].identifier]) {
+            changedTargetTouches.push(changedTouches[i]);
+        }
+
+        // cleanup removed touches
+        if (type & (INPUT_END | INPUT_CANCEL)) {
+            delete targetIds[changedTouches[i].identifier];
+        }
+        i++;
+    }
+
+    if (!changedTargetTouches.length) {
+        return;
+    }
+
+    return [
+        // merge targetTouches with changedTargetTouches so it contains ALL touches, including 'end' and 'cancel'
+        uniqueArray(targetTouches.concat(changedTargetTouches), 'identifier', true),
+        changedTargetTouches
+    ];
+}
+
+/**
+ * Combined touch and mouse input
+ *
+ * Touch has a higher priority then mouse, and while touching no mouse events are allowed.
+ * This because touch devices also emit mouse events while doing a touch.
+ *
+ * @constructor
+ * @extends Input
+ */
+function TouchMouseInput() {
+    Input.apply(this, arguments);
+
+    var handler = bindFn(this.handler, this);
+    this.touch = new TouchInput(this.manager, handler);
+    this.mouse = new MouseInput(this.manager, handler);
+}
+
+inherit(TouchMouseInput, Input, {
+    /**
+     * handle mouse and touch events
+     * @param {Hammer} manager
+     * @param {String} inputEvent
+     * @param {Object} inputData
+     */
+    handler: function TMEhandler(manager, inputEvent, inputData) {
+        var isTouch = (inputData.pointerType == INPUT_TYPE_TOUCH),
+            isMouse = (inputData.pointerType == INPUT_TYPE_MOUSE);
+
+        // when we're in a touch event, so  block all upcoming mouse events
+        // most mobile browser also emit mouseevents, right after touchstart
+        if (isTouch) {
+            this.mouse.allow = false;
+        } else if (isMouse && !this.mouse.allow) {
+            return;
+        }
+
+        // reset the allowMouse when we're done
+        if (inputEvent & (INPUT_END | INPUT_CANCEL)) {
+            this.mouse.allow = true;
+        }
+
+        this.callback(manager, inputEvent, inputData);
+    },
+
+    /**
+     * remove the event listeners
+     */
+    destroy: function destroy() {
+        this.touch.destroy();
+        this.mouse.destroy();
+    }
+});
+
+var PREFIXED_TOUCH_ACTION = prefixed(TEST_ELEMENT.style, 'touchAction');
+var NATIVE_TOUCH_ACTION = PREFIXED_TOUCH_ACTION !== undefined;
+
+// magical touchAction value
+var TOUCH_ACTION_COMPUTE = 'compute';
+var TOUCH_ACTION_AUTO = 'auto';
+var TOUCH_ACTION_MANIPULATION = 'manipulation'; // not implemented
+var TOUCH_ACTION_NONE = 'none';
+var TOUCH_ACTION_PAN_X = 'pan-x';
+var TOUCH_ACTION_PAN_Y = 'pan-y';
+
+/**
+ * Touch Action
+ * sets the touchAction property or uses the js alternative
+ * @param {Manager} manager
+ * @param {String} value
+ * @constructor
+ */
+function TouchAction(manager, value) {
+    this.manager = manager;
+    this.set(value);
+}
+
+TouchAction.prototype = {
+    /**
+     * set the touchAction value on the element or enable the polyfill
+     * @param {String} value
+     */
+    set: function(value) {
+        // find out the touch-action by the event handlers
+        if (value == TOUCH_ACTION_COMPUTE) {
+            value = this.compute();
+        }
+
+        if (NATIVE_TOUCH_ACTION) {
+            this.manager.element.style[PREFIXED_TOUCH_ACTION] = value;
+        }
+        this.actions = value.toLowerCase().trim();
+    },
+
+    /**
+     * just re-set the touchAction value
+     */
+    update: function() {
+        this.set(this.manager.options.touchAction);
+    },
+
+    /**
+     * compute the value for the touchAction property based on the recognizer's settings
+     * @returns {String} value
+     */
+    compute: function() {
+        var actions = [];
+        each(this.manager.recognizers, function(recognizer) {
+            if (boolOrFn(recognizer.options.enable, [recognizer])) {
+                actions = actions.concat(recognizer.getTouchAction());
+            }
+        });
+        return cleanTouchActions(actions.join(' '));
+    },
+
+    /**
+     * this method is called on each input cycle and provides the preventing of the browser behavior
+     * @param {Object} input
+     */
+    preventDefaults: function(input) {
+        // not needed with native support for the touchAction property
+        if (NATIVE_TOUCH_ACTION) {
+            return;
+        }
+
+        var srcEvent = input.srcEvent;
+        var direction = input.offsetDirection;
+
+        // if the touch action did prevented once this session
+        if (this.manager.session.prevented) {
+            srcEvent.preventDefault();
+            return;
+        }
+
+        var actions = this.actions;
+        var hasNone = inStr(actions, TOUCH_ACTION_NONE);
+        var hasPanY = inStr(actions, TOUCH_ACTION_PAN_Y);
+        var hasPanX = inStr(actions, TOUCH_ACTION_PAN_X);
+
+        if (hasNone ||
+            (hasPanY && direction & DIRECTION_HORIZONTAL) ||
+            (hasPanX && direction & DIRECTION_VERTICAL)) {
+            return this.preventSrc(srcEvent);
+        }
+    },
+
+    /**
+     * call preventDefault to prevent the browser's default behavior (scrolling in most cases)
+     * @param {Object} srcEvent
+     */
+    preventSrc: function(srcEvent) {
+        this.manager.session.prevented = true;
+        srcEvent.preventDefault();
+    }
+};
+
+/**
+ * when the touchActions are collected they are not a valid value, so we need to clean things up. *
+ * @param {String} actions
+ * @returns {*}
+ */
+function cleanTouchActions(actions) {
+    // none
+    if (inStr(actions, TOUCH_ACTION_NONE)) {
+        return TOUCH_ACTION_NONE;
+    }
+
+    var hasPanX = inStr(actions, TOUCH_ACTION_PAN_X);
+    var hasPanY = inStr(actions, TOUCH_ACTION_PAN_Y);
+
+    // pan-x and pan-y can be combined
+    if (hasPanX && hasPanY) {
+        return TOUCH_ACTION_PAN_X + ' ' + TOUCH_ACTION_PAN_Y;
+    }
+
+    // pan-x OR pan-y
+    if (hasPanX || hasPanY) {
+        return hasPanX ? TOUCH_ACTION_PAN_X : TOUCH_ACTION_PAN_Y;
+    }
+
+    // manipulation
+    if (inStr(actions, TOUCH_ACTION_MANIPULATION)) {
+        return TOUCH_ACTION_MANIPULATION;
+    }
+
+    return TOUCH_ACTION_AUTO;
+}
+
+/**
+ * Recognizer flow explained; *
+ * All recognizers have the initial state of POSSIBLE when a input session starts.
+ * The definition of a input session is from the first input until the last input, with all it's movement in it. *
+ * Example session for mouse-input: mousedown -> mousemove -> mouseup
+ *
+ * On each recognizing cycle (see Manager.recognize) the .recognize() method is executed
+ * which determines with state it should be.
+ *
+ * If the recognizer has the state FAILED, CANCELLED or RECOGNIZED (equals ENDED), it is reset to
+ * POSSIBLE to give it another change on the next cycle.
+ *
+ *               Possible
+ *                  |
+ *            +-----+---------------+
+ *            |                     |
+ *      +-----+-----+               |
+ *      |           |               |
+ *   Failed      Cancelled          |
+ *                          +-------+------+
+ *                          |              |
+ *                      Recognized       Began
+ *                                         |
+ *                                      Changed
+ *                                         |
+ *                                  Ended/Recognized
+ */
+var STATE_POSSIBLE = 1;
+var STATE_BEGAN = 2;
+var STATE_CHANGED = 4;
+var STATE_ENDED = 8;
+var STATE_RECOGNIZED = STATE_ENDED;
+var STATE_CANCELLED = 16;
+var STATE_FAILED = 32;
+
+/**
+ * Recognizer
+ * Every recognizer needs to extend from this class.
+ * @constructor
+ * @param {Object} options
+ */
+function Recognizer(options) {
+    this.id = uniqueId();
+
+    this.manager = null;
+    this.options = merge(options || {}, this.defaults);
+
+    // default is enable true
+    this.options.enable = ifUndefined(this.options.enable, true);
+
+    this.state = STATE_POSSIBLE;
+
+    this.simultaneous = {};
+    this.requireFail = [];
+}
+
+Recognizer.prototype = {
+    /**
+     * @virtual
+     * @type {Object}
+     */
+    defaults: {},
+
+    /**
+     * set options
+     * @param {Object} options
+     * @return {Recognizer}
+     */
+    set: function(options) {
+        extend(this.options, options);
+
+        // also update the touchAction, in case something changed about the directions/enabled state
+        this.manager && this.manager.touchAction.update();
+        return this;
+    },
+
+    /**
+     * recognize simultaneous with an other recognizer.
+     * @param {Recognizer} otherRecognizer
+     * @returns {Recognizer} this
+     */
+    recognizeWith: function(otherRecognizer) {
+        if (invokeArrayArg(otherRecognizer, 'recognizeWith', this)) {
+            return this;
+        }
+
+        var simultaneous = this.simultaneous;
+        otherRecognizer = getRecognizerByNameIfManager(otherRecognizer, this);
+        if (!simultaneous[otherRecognizer.id]) {
+            simultaneous[otherRecognizer.id] = otherRecognizer;
+            otherRecognizer.recognizeWith(this);
+        }
+        return this;
+    },
+
+    /**
+     * drop the simultaneous link. it doesnt remove the link on the other recognizer.
+     * @param {Recognizer} otherRecognizer
+     * @returns {Recognizer} this
+     */
+    dropRecognizeWith: function(otherRecognizer) {
+        if (invokeArrayArg(otherRecognizer, 'dropRecognizeWith', this)) {
+            return this;
+        }
+
+        otherRecognizer = getRecognizerByNameIfManager(otherRecognizer, this);
+        delete this.simultaneous[otherRecognizer.id];
+        return this;
+    },
+
+    /**
+     * recognizer can only run when an other is failing
+     * @param {Recognizer} otherRecognizer
+     * @returns {Recognizer} this
+     */
+    requireFailure: function(otherRecognizer) {
+        if (invokeArrayArg(otherRecognizer, 'requireFailure', this)) {
+            return this;
+        }
+
+        var requireFail = this.requireFail;
+        otherRecognizer = getRecognizerByNameIfManager(otherRecognizer, this);
+        if (inArray(requireFail, otherRecognizer) === -1) {
+            requireFail.push(otherRecognizer);
+            otherRecognizer.requireFailure(this);
+        }
+        return this;
+    },
+
+    /**
+     * drop the requireFailure link. it does not remove the link on the other recognizer.
+     * @param {Recognizer} otherRecognizer
+     * @returns {Recognizer} this
+     */
+    dropRequireFailure: function(otherRecognizer) {
+        if (invokeArrayArg(otherRecognizer, 'dropRequireFailure', this)) {
+            return this;
+        }
+
+        otherRecognizer = getRecognizerByNameIfManager(otherRecognizer, this);
+        var index = inArray(this.requireFail, otherRecognizer);
+        if (index > -1) {
+            this.requireFail.splice(index, 1);
+        }
+        return this;
+    },
+
+    /**
+     * has require failures boolean
+     * @returns {boolean}
+     */
+    hasRequireFailures: function() {
+        return this.requireFail.length > 0;
+    },
+
+    /**
+     * if the recognizer can recognize simultaneous with an other recognizer
+     * @param {Recognizer} otherRecognizer
+     * @returns {Boolean}
+     */
+    canRecognizeWith: function(otherRecognizer) {
+        return !!this.simultaneous[otherRecognizer.id];
+    },
+
+    /**
+     * You should use `tryEmit` instead of `emit` directly to check
+     * that all the needed recognizers has failed before emitting.
+     * @param {Object} input
+     */
+    emit: function(input) {
+        var self = this;
+        var state = this.state;
+
+        function emit(withState) {
+            self.manager.emit(self.options.event + (withState ? stateStr(state) : ''), input);
+        }
+
+        // 'panstart' and 'panmove'
+        if (state < STATE_ENDED) {
+            emit(true);
+        }
+
+        emit(); // simple 'eventName' events
+
+        // panend and pancancel
+        if (state >= STATE_ENDED) {
+            emit(true);
+        }
+    },
+
+    /**
+     * Check that all the require failure recognizers has failed,
+     * if true, it emits a gesture event,
+     * otherwise, setup the state to FAILED.
+     * @param {Object} input
+     */
+    tryEmit: function(input) {
+        if (this.canEmit()) {
+            return this.emit(input);
+        }
+        // it's failing anyway
+        this.state = STATE_FAILED;
+    },
+
+    /**
+     * can we emit?
+     * @returns {boolean}
+     */
+    canEmit: function() {
+        var i = 0;
+        while (i < this.requireFail.length) {
+            if (!(this.requireFail[i].state & (STATE_FAILED | STATE_POSSIBLE))) {
+                return false;
+            }
+            i++;
+        }
+        return true;
+    },
+
+    /**
+     * update the recognizer
+     * @param {Object} inputData
+     */
+    recognize: function(inputData) {
+        // make a new copy of the inputData
+        // so we can change the inputData without messing up the other recognizers
+        var inputDataClone = extend({}, inputData);
+
+        // is is enabled and allow recognizing?
+        if (!boolOrFn(this.options.enable, [this, inputDataClone])) {
+            this.reset();
+            this.state = STATE_FAILED;
+            return;
+        }
+
+        // reset when we've reached the end
+        if (this.state & (STATE_RECOGNIZED | STATE_CANCELLED | STATE_FAILED)) {
+            this.state = STATE_POSSIBLE;
+        }
+
+        this.state = this.process(inputDataClone);
+
+        // the recognizer has recognized a gesture
+        // so trigger an event
+        if (this.state & (STATE_BEGAN | STATE_CHANGED | STATE_ENDED | STATE_CANCELLED)) {
+            this.tryEmit(inputDataClone);
+        }
+    },
+
+    /**
+     * return the state of the recognizer
+     * the actual recognizing happens in this method
+     * @virtual
+     * @param {Object} inputData
+     * @returns {Const} STATE
+     */
+    process: function(inputData) { }, // jshint ignore:line
+
+    /**
+     * return the preferred touch-action
+     * @virtual
+     * @returns {Array}
+     */
+    getTouchAction: function() { },
+
+    /**
+     * called when the gesture isn't allowed to recognize
+     * like when another is being recognized or it is disabled
+     * @virtual
+     */
+    reset: function() { }
+};
+
+/**
+ * get a usable string, used as event postfix
+ * @param {Const} state
+ * @returns {String} state
+ */
+function stateStr(state) {
+    if (state & STATE_CANCELLED) {
+        return 'cancel';
+    } else if (state & STATE_ENDED) {
+        return 'end';
+    } else if (state & STATE_CHANGED) {
+        return 'move';
+    } else if (state & STATE_BEGAN) {
+        return 'start';
+    }
+    return '';
+}
+
+/**
+ * direction cons to string
+ * @param {Const} direction
+ * @returns {String}
+ */
+function directionStr(direction) {
+    if (direction == DIRECTION_DOWN) {
+        return 'down';
+    } else if (direction == DIRECTION_UP) {
+        return 'up';
+    } else if (direction == DIRECTION_LEFT) {
+        return 'left';
+    } else if (direction == DIRECTION_RIGHT) {
+        return 'right';
+    }
+    return '';
+}
+
+/**
+ * get a recognizer by name if it is bound to a manager
+ * @param {Recognizer|String} otherRecognizer
+ * @param {Recognizer} recognizer
+ * @returns {Recognizer}
+ */
+function getRecognizerByNameIfManager(otherRecognizer, recognizer) {
+    var manager = recognizer.manager;
+    if (manager) {
+        return manager.get(otherRecognizer);
+    }
+    return otherRecognizer;
+}
+
+/**
+ * This recognizer is just used as a base for the simple attribute recognizers.
+ * @constructor
+ * @extends Recognizer
+ */
+function AttrRecognizer() {
+    Recognizer.apply(this, arguments);
+}
+
+inherit(AttrRecognizer, Recognizer, {
+    /**
+     * @namespace
+     * @memberof AttrRecognizer
+     */
+    defaults: {
+        /**
+         * @type {Number}
+         * @default 1
+         */
+        pointers: 1
+    },
+
+    /**
+     * Used to check if it the recognizer receives valid input, like input.distance > 10.
+     * @memberof AttrRecognizer
+     * @param {Object} input
+     * @returns {Boolean} recognized
+     */
+    attrTest: function(input) {
+        var optionPointers = this.options.pointers;
+        return optionPointers === 0 || input.pointers.length === optionPointers;
+    },
+
+    /**
+     * Process the input and return the state for the recognizer
+     * @memberof AttrRecognizer
+     * @param {Object} input
+     * @returns {*} State
+     */
+    process: function(input) {
+        var state = this.state;
+        var eventType = input.eventType;
+
+        var isRecognized = state & (STATE_BEGAN | STATE_CHANGED);
+        var isValid = this.attrTest(input);
+
+        // on cancel input and we've recognized before, return STATE_CANCELLED
+        if (isRecognized && (eventType & INPUT_CANCEL || !isValid)) {
+            return state | STATE_CANCELLED;
+        } else if (isRecognized || isValid) {
+            if (eventType & INPUT_END) {
+                return state | STATE_ENDED;
+            } else if (!(state & STATE_BEGAN)) {
+                return STATE_BEGAN;
+            }
+            return state | STATE_CHANGED;
+        }
+        return STATE_FAILED;
+    }
+});
+
+/**
+ * Pan
+ * Recognized when the pointer is down and moved in the allowed direction.
+ * @constructor
+ * @extends AttrRecognizer
+ */
+function PanRecognizer() {
+    AttrRecognizer.apply(this, arguments);
+
+    this.pX = null;
+    this.pY = null;
+}
+
+inherit(PanRecognizer, AttrRecognizer, {
+    /**
+     * @namespace
+     * @memberof PanRecognizer
+     */
+    defaults: {
+        event: 'pan',
+        threshold: 10,
+        pointers: 1,
+        direction: DIRECTION_ALL
+    },
+
+    getTouchAction: function() {
+        var direction = this.options.direction;
+        var actions = [];
+        if (direction & DIRECTION_HORIZONTAL) {
+            actions.push(TOUCH_ACTION_PAN_Y);
+        }
+        if (direction & DIRECTION_VERTICAL) {
+            actions.push(TOUCH_ACTION_PAN_X);
+        }
+        return actions;
+    },
+
+    directionTest: function(input) {
+        var options = this.options;
+        var hasMoved = true;
+        var distance = input.distance;
+        var direction = input.direction;
+        var x = input.deltaX;
+        var y = input.deltaY;
+
+        // lock to axis?
+        if (!(direction & options.direction)) {
+            if (options.direction & DIRECTION_HORIZONTAL) {
+                direction = (x === 0) ? DIRECTION_NONE : (x < 0) ? DIRECTION_LEFT : DIRECTION_RIGHT;
+                hasMoved = x != this.pX;
+                distance = Math.abs(input.deltaX);
+            } else {
+                direction = (y === 0) ? DIRECTION_NONE : (y < 0) ? DIRECTION_UP : DIRECTION_DOWN;
+                hasMoved = y != this.pY;
+                distance = Math.abs(input.deltaY);
+            }
+        }
+        input.direction = direction;
+        return hasMoved && distance > options.threshold && direction & options.direction;
+    },
+
+    attrTest: function(input) {
+        return AttrRecognizer.prototype.attrTest.call(this, input) &&
+            (this.state & STATE_BEGAN || (!(this.state & STATE_BEGAN) && this.directionTest(input)));
+    },
+
+    emit: function(input) {
+        this.pX = input.deltaX;
+        this.pY = input.deltaY;
+
+        var direction = directionStr(input.direction);
+        if (direction) {
+            this.manager.emit(this.options.event + direction, input);
+        }
+
+        this._super.emit.call(this, input);
+    }
+});
+
+/**
+ * Pinch
+ * Recognized when two or more pointers are moving toward (zoom-in) or away from each other (zoom-out).
+ * @constructor
+ * @extends AttrRecognizer
+ */
+function PinchRecognizer() {
+    AttrRecognizer.apply(this, arguments);
+}
+
+inherit(PinchRecognizer, AttrRecognizer, {
+    /**
+     * @namespace
+     * @memberof PinchRecognizer
+     */
+    defaults: {
+        event: 'pinch',
+        threshold: 0,
+        pointers: 2
+    },
+
+    getTouchAction: function() {
+        return [TOUCH_ACTION_NONE];
+    },
+
+    attrTest: function(input) {
+        return this._super.attrTest.call(this, input) &&
+            (Math.abs(input.scale - 1) > this.options.threshold || this.state & STATE_BEGAN);
+    },
+
+    emit: function(input) {
+        this._super.emit.call(this, input);
+        if (input.scale !== 1) {
+            var inOut = input.scale < 1 ? 'in' : 'out';
+            this.manager.emit(this.options.event + inOut, input);
+        }
+    }
+});
+
+/**
+ * Press
+ * Recognized when the pointer is down for x ms without any movement.
+ * @constructor
+ * @extends Recognizer
+ */
+function PressRecognizer() {
+    Recognizer.apply(this, arguments);
+
+    this._timer = null;
+    this._input = null;
+}
+
+inherit(PressRecognizer, Recognizer, {
+    /**
+     * @namespace
+     * @memberof PressRecognizer
+     */
+    defaults: {
+        event: 'press',
+        pointers: 1,
+        time: 500, // minimal time of the pointer to be pressed
+        threshold: 5 // a minimal movement is ok, but keep it low
+    },
+
+    getTouchAction: function() {
+        return [TOUCH_ACTION_AUTO];
+    },
+
+    process: function(input) {
+        var options = this.options;
+        var validPointers = input.pointers.length === options.pointers;
+        var validMovement = input.distance < options.threshold;
+        var validTime = input.deltaTime > options.time;
+
+        this._input = input;
+
+        // we only allow little movement
+        // and we've reached an end event, so a tap is possible
+        if (!validMovement || !validPointers || (input.eventType & (INPUT_END | INPUT_CANCEL) && !validTime)) {
+            this.reset();
+        } else if (input.eventType & INPUT_START) {
+            this.reset();
+            this._timer = setTimeoutContext(function() {
+                this.state = STATE_RECOGNIZED;
+                this.tryEmit();
+            }, options.time, this);
+        } else if (input.eventType & INPUT_END) {
+            return STATE_RECOGNIZED;
+        }
+        return STATE_FAILED;
+    },
+
+    reset: function() {
+        clearTimeout(this._timer);
+    },
+
+    emit: function(input) {
+        if (this.state !== STATE_RECOGNIZED) {
+            return;
+        }
+
+        if (input && (input.eventType & INPUT_END)) {
+            this.manager.emit(this.options.event + 'up', input);
+        } else {
+            this._input.timeStamp = now();
+            this.manager.emit(this.options.event, this._input);
+        }
+    }
+});
+
+/**
+ * Rotate
+ * Recognized when two or more pointer are moving in a circular motion.
+ * @constructor
+ * @extends AttrRecognizer
+ */
+function RotateRecognizer() {
+    AttrRecognizer.apply(this, arguments);
+}
+
+inherit(RotateRecognizer, AttrRecognizer, {
+    /**
+     * @namespace
+     * @memberof RotateRecognizer
+     */
+    defaults: {
+        event: 'rotate',
+        threshold: 0,
+        pointers: 2
+    },
+
+    getTouchAction: function() {
+        return [TOUCH_ACTION_NONE];
+    },
+
+    attrTest: function(input) {
+        return this._super.attrTest.call(this, input) &&
+            (Math.abs(input.rotation) > this.options.threshold || this.state & STATE_BEGAN);
+    }
+});
+
+/**
+ * Swipe
+ * Recognized when the pointer is moving fast (velocity), with enough distance in the allowed direction.
+ * @constructor
+ * @extends AttrRecognizer
+ */
+function SwipeRecognizer() {
+    AttrRecognizer.apply(this, arguments);
+}
+
+inherit(SwipeRecognizer, AttrRecognizer, {
+    /**
+     * @namespace
+     * @memberof SwipeRecognizer
+     */
+    defaults: {
+        event: 'swipe',
+        threshold: 10,
+        velocity: 0.65,
+        direction: DIRECTION_HORIZONTAL | DIRECTION_VERTICAL,
+        pointers: 1
+    },
+
+    getTouchAction: function() {
+        return PanRecognizer.prototype.getTouchAction.call(this);
+    },
+
+    attrTest: function(input) {
+        var direction = this.options.direction;
+        var velocity;
+
+        if (direction & (DIRECTION_HORIZONTAL | DIRECTION_VERTICAL)) {
+            velocity = input.velocity;
+        } else if (direction & DIRECTION_HORIZONTAL) {
+            velocity = input.velocityX;
+        } else if (direction & DIRECTION_VERTICAL) {
+            velocity = input.velocityY;
+        }
+
+        return this._super.attrTest.call(this, input) &&
+            direction & input.direction &&
+            input.distance > this.options.threshold &&
+            abs(velocity) > this.options.velocity && input.eventType & INPUT_END;
+    },
+
+    emit: function(input) {
+        var direction = directionStr(input.direction);
+        if (direction) {
+            this.manager.emit(this.options.event + direction, input);
+        }
+
+        this.manager.emit(this.options.event, input);
+    }
+});
+
+/**
+ * A tap is ecognized when the pointer is doing a small tap/click. Multiple taps are recognized if they occur
+ * between the given interval and position. The delay option can be used to recognize multi-taps without firing
+ * a single tap.
+ *
+ * The eventData from the emitted event contains the property `tapCount`, which contains the amount of
+ * multi-taps being recognized.
+ * @constructor
+ * @extends Recognizer
+ */
+function TapRecognizer() {
+    Recognizer.apply(this, arguments);
+
+    // previous time and center,
+    // used for tap counting
+    this.pTime = false;
+    this.pCenter = false;
+
+    this._timer = null;
+    this._input = null;
+    this.count = 0;
+}
+
+inherit(TapRecognizer, Recognizer, {
+    /**
+     * @namespace
+     * @memberof PinchRecognizer
+     */
+    defaults: {
+        event: 'tap',
+        pointers: 1,
+        taps: 1,
+        interval: 300, // max time between the multi-tap taps
+        time: 250, // max time of the pointer to be down (like finger on the screen)
+        threshold: 2, // a minimal movement is ok, but keep it low
+        posThreshold: 10 // a multi-tap can be a bit off the initial position
+    },
+
+    getTouchAction: function() {
+        return [TOUCH_ACTION_MANIPULATION];
+    },
+
+    process: function(input) {
+        var options = this.options;
+
+        var validPointers = input.pointers.length === options.pointers;
+        var validMovement = input.distance < options.threshold;
+        var validTouchTime = input.deltaTime < options.time;
+
+        this.reset();
+
+        if ((input.eventType & INPUT_START) && (this.count === 0)) {
+            return this.failTimeout();
+        }
+
+        // we only allow little movement
+        // and we've reached an end event, so a tap is possible
+        if (validMovement && validTouchTime && validPointers) {
+            if (input.eventType != INPUT_END) {
+                return this.failTimeout();
+            }
+
+            var validInterval = this.pTime ? (input.timeStamp - this.pTime < options.interval) : true;
+            var validMultiTap = !this.pCenter || getDistance(this.pCenter, input.center) < options.posThreshold;
+
+            this.pTime = input.timeStamp;
+            this.pCenter = input.center;
+
+            if (!validMultiTap || !validInterval) {
+                this.count = 1;
+            } else {
+                this.count += 1;
+            }
+
+            this._input = input;
+
+            // if tap count matches we have recognized it,
+            // else it has began recognizing...
+            var tapCount = this.count % options.taps;
+            if (tapCount === 0) {
+                // no failing requirements, immediately trigger the tap event
+                // or wait as long as the multitap interval to trigger
+                if (!this.hasRequireFailures()) {
+                    return STATE_RECOGNIZED;
+                } else {
+                    this._timer = setTimeoutContext(function() {
+                        this.state = STATE_RECOGNIZED;
+                        this.tryEmit();
+                    }, options.interval, this);
+                    return STATE_BEGAN;
+                }
+            }
+        }
+        return STATE_FAILED;
+    },
+
+    failTimeout: function() {
+        this._timer = setTimeoutContext(function() {
+            this.state = STATE_FAILED;
+        }, this.options.interval, this);
+        return STATE_FAILED;
+    },
+
+    reset: function() {
+        clearTimeout(this._timer);
+    },
+
+    emit: function() {
+        if (this.state == STATE_RECOGNIZED ) {
+            this._input.tapCount = this.count;
+            this.manager.emit(this.options.event, this._input);
+        }
+    }
+});
+
+/**
+ * Simple way to create an manager with a default set of recognizers.
+ * @param {HTMLElement} element
+ * @param {Object} [options]
+ * @constructor
+ */
+function Hammer(element, options) {
+    options = options || {};
+    options.recognizers = ifUndefined(options.recognizers, Hammer.defaults.preset);
+    return new Manager(element, options);
+}
+
+/**
+ * @const {string}
+ */
+Hammer.VERSION = '2.0.4';
+
+/**
+ * default settings
+ * @namespace
+ */
+Hammer.defaults = {
+    /**
+     * set if DOM events are being triggered.
+     * But this is slower and unused by simple implementations, so disabled by default.
+     * @type {Boolean}
+     * @default false
+     */
+    domEvents: false,
+
+    /**
+     * The value for the touchAction property/fallback.
+     * When set to `compute` it will magically set the correct value based on the added recognizers.
+     * @type {String}
+     * @default compute
+     */
+    touchAction: TOUCH_ACTION_COMPUTE,
+
+    /**
+     * @type {Boolean}
+     * @default true
+     */
+    enable: true,
+
+    /**
+     * EXPERIMENTAL FEATURE -- can be removed/changed
+     * Change the parent input target element.
+     * If Null, then it is being set the to main element.
+     * @type {Null|EventTarget}
+     * @default null
+     */
+    inputTarget: null,
+
+    /**
+     * force an input class
+     * @type {Null|Function}
+     * @default null
+     */
+    inputClass: null,
+
+    /**
+     * Default recognizer setup when calling `Hammer()`
+     * When creating a new Manager these will be skipped.
+     * @type {Array}
+     */
+    preset: [
+        // RecognizerClass, options, [recognizeWith, ...], [requireFailure, ...]
+        [RotateRecognizer, { enable: false }],
+        [PinchRecognizer, { enable: false }, ['rotate']],
+        [SwipeRecognizer,{ direction: DIRECTION_HORIZONTAL }],
+        [PanRecognizer, { direction: DIRECTION_HORIZONTAL }, ['swipe']],
+        [TapRecognizer],
+        [TapRecognizer, { event: 'doubletap', taps: 2 }, ['tap']],
+        [PressRecognizer]
+    ],
+
+    /**
+     * Some CSS properties can be used to improve the working of Hammer.
+     * Add them to this method and they will be set when creating a new Manager.
+     * @namespace
+     */
+    cssProps: {
+        /**
+         * Disables text selection to improve the dragging gesture. Mainly for desktop browsers.
+         * @type {String}
+         * @default 'none'
+         */
+        userSelect: 'none',
+
+        /**
+         * Disable the Windows Phone grippers when pressing an element.
+         * @type {String}
+         * @default 'none'
+         */
+        touchSelect: 'none',
+
+        /**
+         * Disables the default callout shown when you touch and hold a touch target.
+         * On iOS, when you touch and hold a touch target such as a link, Safari displays
+         * a callout containing information about the link. This property allows you to disable that callout.
+         * @type {String}
+         * @default 'none'
+         */
+        touchCallout: 'none',
+
+        /**
+         * Specifies whether zooming is enabled. Used by IE10>
+         * @type {String}
+         * @default 'none'
+         */
+        contentZooming: 'none',
+
+        /**
+         * Specifies that an entire element should be draggable instead of its contents. Mainly for desktop browsers.
+         * @type {String}
+         * @default 'none'
+         */
+        userDrag: 'none',
+
+        /**
+         * Overrides the highlight color shown when the user taps a link or a JavaScript
+         * clickable element in iOS. This property obeys the alpha value, if specified.
+         * @type {String}
+         * @default 'rgba(0,0,0,0)'
+         */
+        tapHighlightColor: 'rgba(0,0,0,0)'
+    }
+};
+
+var STOP = 1;
+var FORCED_STOP = 2;
+
+/**
+ * Manager
+ * @param {HTMLElement} element
+ * @param {Object} [options]
+ * @constructor
+ */
+function Manager(element, options) {
+    options = options || {};
+
+    this.options = merge(options, Hammer.defaults);
+    this.options.inputTarget = this.options.inputTarget || element;
+
+    this.handlers = {};
+    this.session = {};
+    this.recognizers = [];
+
+    this.element = element;
+    this.input = createInputInstance(this);
+    this.touchAction = new TouchAction(this, this.options.touchAction);
+
+    toggleCssProps(this, true);
+
+    each(options.recognizers, function(item) {
+        var recognizer = this.add(new (item[0])(item[1]));
+        item[2] && recognizer.recognizeWith(item[2]);
+        item[3] && recognizer.requireFailure(item[3]);
+    }, this);
+}
+
+Manager.prototype = {
+    /**
+     * set options
+     * @param {Object} options
+     * @returns {Manager}
+     */
+    set: function(options) {
+        extend(this.options, options);
+
+        // Options that need a little more setup
+        if (options.touchAction) {
+            this.touchAction.update();
+        }
+        if (options.inputTarget) {
+            // Clean up existing event listeners and reinitialize
+            this.input.destroy();
+            this.input.target = options.inputTarget;
+            this.input.init();
+        }
+        return this;
+    },
+
+    /**
+     * stop recognizing for this session.
+     * This session will be discarded, when a new [input]start event is fired.
+     * When forced, the recognizer cycle is stopped immediately.
+     * @param {Boolean} [force]
+     */
+    stop: function(force) {
+        this.session.stopped = force ? FORCED_STOP : STOP;
+    },
+
+    /**
+     * run the recognizers!
+     * called by the inputHandler function on every movement of the pointers (touches)
+     * it walks through all the recognizers and tries to detect the gesture that is being made
+     * @param {Object} inputData
+     */
+    recognize: function(inputData) {
+        var session = this.session;
+        if (session.stopped) {
+            return;
+        }
+
+        // run the touch-action polyfill
+        this.touchAction.preventDefaults(inputData);
+
+        var recognizer;
+        var recognizers = this.recognizers;
+
+        // this holds the recognizer that is being recognized.
+        // so the recognizer's state needs to be BEGAN, CHANGED, ENDED or RECOGNIZED
+        // if no recognizer is detecting a thing, it is set to `null`
+        var curRecognizer = session.curRecognizer;
+
+        // reset when the last recognizer is recognized
+        // or when we're in a new session
+        if (!curRecognizer || (curRecognizer && curRecognizer.state & STATE_RECOGNIZED)) {
+            curRecognizer = session.curRecognizer = null;
+        }
+
+        var i = 0;
+        while (i < recognizers.length) {
+            recognizer = recognizers[i];
+
+            // find out if we are allowed try to recognize the input for this one.
+            // 1.   allow if the session is NOT forced stopped (see the .stop() method)
+            // 2.   allow if we still haven't recognized a gesture in this session, or the this recognizer is the one
+            //      that is being recognized.
+            // 3.   allow if the recognizer is allowed to run simultaneous with the current recognized recognizer.
+            //      this can be setup with the `recognizeWith()` method on the recognizer.
+            if (session.stopped !== FORCED_STOP && ( // 1
+                    !curRecognizer || recognizer == curRecognizer || // 2
+                    recognizer.canRecognizeWith(curRecognizer))) { // 3
+                recognizer.recognize(inputData);
+            } else {
+                recognizer.reset();
+            }
+
+            // if the recognizer has been recognizing the input as a valid gesture, we want to store this one as the
+            // current active recognizer. but only if we don't already have an active recognizer
+            if (!curRecognizer && recognizer.state & (STATE_BEGAN | STATE_CHANGED | STATE_ENDED)) {
+                curRecognizer = session.curRecognizer = recognizer;
+            }
+            i++;
+        }
+    },
+
+    /**
+     * get a recognizer by its event name.
+     * @param {Recognizer|String} recognizer
+     * @returns {Recognizer|Null}
+     */
+    get: function(recognizer) {
+        if (recognizer instanceof Recognizer) {
+            return recognizer;
+        }
+
+        var recognizers = this.recognizers;
+        for (var i = 0; i < recognizers.length; i++) {
+            if (recognizers[i].options.event == recognizer) {
+                return recognizers[i];
+            }
+        }
+        return null;
+    },
+
+    /**
+     * add a recognizer to the manager
+     * existing recognizers with the same event name will be removed
+     * @param {Recognizer} recognizer
+     * @returns {Recognizer|Manager}
+     */
+    add: function(recognizer) {
+        if (invokeArrayArg(recognizer, 'add', this)) {
+            return this;
+        }
+
+        // remove existing
+        var existing = this.get(recognizer.options.event);
+        if (existing) {
+            this.remove(existing);
+        }
+
+        this.recognizers.push(recognizer);
+        recognizer.manager = this;
+
+        this.touchAction.update();
+        return recognizer;
+    },
+
+    /**
+     * remove a recognizer by name or instance
+     * @param {Recognizer|String} recognizer
+     * @returns {Manager}
+     */
+    remove: function(recognizer) {
+        if (invokeArrayArg(recognizer, 'remove', this)) {
+            return this;
+        }
+
+        var recognizers = this.recognizers;
+        recognizer = this.get(recognizer);
+        recognizers.splice(inArray(recognizers, recognizer), 1);
+
+        this.touchAction.update();
+        return this;
+    },
+
+    /**
+     * bind event
+     * @param {String} events
+     * @param {Function} handler
+     * @returns {EventEmitter} this
+     */
+    on: function(events, handler) {
+        var handlers = this.handlers;
+        each(splitStr(events), function(event) {
+            handlers[event] = handlers[event] || [];
+            handlers[event].push(handler);
+        });
+        return this;
+    },
+
+    /**
+     * unbind event, leave emit blank to remove all handlers
+     * @param {String} events
+     * @param {Function} [handler]
+     * @returns {EventEmitter} this
+     */
+    off: function(events, handler) {
+        var handlers = this.handlers;
+        each(splitStr(events), function(event) {
+            if (!handler) {
+                delete handlers[event];
+            } else {
+                handlers[event].splice(inArray(handlers[event], handler), 1);
+            }
+        });
+        return this;
+    },
+
+    /**
+     * emit event to the listeners
+     * @param {String} event
+     * @param {Object} data
+     */
+    emit: function(event, data) {
+        // we also want to trigger dom events
+        if (this.options.domEvents) {
+            triggerDomEvent(event, data);
+        }
+
+        // no handlers, so skip it all
+        var handlers = this.handlers[event] && this.handlers[event].slice();
+        if (!handlers || !handlers.length) {
+            return;
+        }
+
+        data.type = event;
+        data.preventDefault = function() {
+            data.srcEvent.preventDefault();
+        };
+
+        var i = 0;
+        while (i < handlers.length) {
+            handlers[i](data);
+            i++;
+        }
+    },
+
+    /**
+     * destroy the manager and unbinds all events
+     * it doesn't unbind dom events, that is the user own responsibility
+     */
+    destroy: function() {
+        this.element && toggleCssProps(this, false);
+
+        this.handlers = {};
+        this.session = {};
+        this.input.destroy();
+        this.element = null;
+    }
+};
+
+/**
+ * add/remove the css properties as defined in manager.options.cssProps
+ * @param {Manager} manager
+ * @param {Boolean} add
+ */
+function toggleCssProps(manager, add) {
+    var element = manager.element;
+    each(manager.options.cssProps, function(value, name) {
+        element.style[prefixed(element.style, name)] = add ? value : '';
+    });
+}
+
+/**
+ * trigger dom event
+ * @param {String} event
+ * @param {Object} data
+ */
+function triggerDomEvent(event, data) {
+    var gestureEvent = document.createEvent('Event');
+    gestureEvent.initEvent(event, true, true);
+    gestureEvent.gesture = data;
+    data.target.dispatchEvent(gestureEvent);
+}
+
+extend(Hammer, {
+    INPUT_START: INPUT_START,
+    INPUT_MOVE: INPUT_MOVE,
+    INPUT_END: INPUT_END,
+    INPUT_CANCEL: INPUT_CANCEL,
+
+    STATE_POSSIBLE: STATE_POSSIBLE,
+    STATE_BEGAN: STATE_BEGAN,
+    STATE_CHANGED: STATE_CHANGED,
+    STATE_ENDED: STATE_ENDED,
+    STATE_RECOGNIZED: STATE_RECOGNIZED,
+    STATE_CANCELLED: STATE_CANCELLED,
+    STATE_FAILED: STATE_FAILED,
+
+    DIRECTION_NONE: DIRECTION_NONE,
+    DIRECTION_LEFT: DIRECTION_LEFT,
+    DIRECTION_RIGHT: DIRECTION_RIGHT,
+    DIRECTION_UP: DIRECTION_UP,
+    DIRECTION_DOWN: DIRECTION_DOWN,
+    DIRECTION_HORIZONTAL: DIRECTION_HORIZONTAL,
+    DIRECTION_VERTICAL: DIRECTION_VERTICAL,
+    DIRECTION_ALL: DIRECTION_ALL,
+
+    Manager: Manager,
+    Input: Input,
+    TouchAction: TouchAction,
+
+    TouchInput: TouchInput,
+    MouseInput: MouseInput,
+    PointerEventInput: PointerEventInput,
+    TouchMouseInput: TouchMouseInput,
+    SingleTouchInput: SingleTouchInput,
+
+    Recognizer: Recognizer,
+    AttrRecognizer: AttrRecognizer,
+    Tap: TapRecognizer,
+    Pan: PanRecognizer,
+    Swipe: SwipeRecognizer,
+    Pinch: PinchRecognizer,
+    Rotate: RotateRecognizer,
+    Press: PressRecognizer,
+
+    on: addEventListeners,
+    off: removeEventListeners,
+    each: each,
+    merge: merge,
+    extend: extend,
+    inherit: inherit,
+    bindFn: bindFn,
+    prefixed: prefixed
+});
+
+if (typeof define == TYPE_FUNCTION && define.amd) {
+    define(function() {
+        return Hammer;
+    });
+} else if (typeof module != 'undefined' && module.exports) {
+    module.exports = Hammer;
+} else {
+    window[exportName] = Hammer;
+}
+
+})(window, document, 'Hammer');
+
+/*! jCarousel - v0.3.3 - 2015-02-28
+* http://sorgalla.com/jcarousel/
+* Copyright (c) 2006-2015 Jan Sorgalla; Licensed MIT */
+(function($) {
+    'use strict';
+
+    var jCarousel = $.jCarousel = {};
+
+    jCarousel.version = '0.3.3';
+
+    var rRelativeTarget = /^([+\-]=)?(.+)$/;
+
+    jCarousel.parseTarget = function(target) {
+        var relative = false,
+            parts    = typeof target !== 'object' ?
+                           rRelativeTarget.exec(target) :
+                           null;
+
+        if (parts) {
+            target = parseInt(parts[2], 10) || 0;
+
+            if (parts[1]) {
+                relative = true;
+                if (parts[1] === '-=') {
+                    target *= -1;
+                }
+            }
+        } else if (typeof target !== 'object') {
+            target = parseInt(target, 10) || 0;
+        }
+
+        return {
+            target: target,
+            relative: relative
+        };
+    };
+
+    jCarousel.detectCarousel = function(element) {
+        var carousel;
+
+        while (element.length > 0) {
+            carousel = element.filter('[data-jcarousel]');
+
+            if (carousel.length > 0) {
+                return carousel;
+            }
+
+            carousel = element.find('[data-jcarousel]');
+
+            if (carousel.length > 0) {
+                return carousel;
+            }
+
+            element = element.parent();
+        }
+
+        return null;
+    };
+
+    jCarousel.base = function(pluginName) {
+        return {
+            version:  jCarousel.version,
+            _options:  {},
+            _element:  null,
+            _carousel: null,
+            _init:     $.noop,
+            _create:   $.noop,
+            _destroy:  $.noop,
+            _reload:   $.noop,
+            create: function() {
+                this._element
+                    .attr('data-' + pluginName.toLowerCase(), true)
+                    .data(pluginName, this);
+
+                if (false === this._trigger('create')) {
+                    return this;
+                }
+
+                this._create();
+
+                this._trigger('createend');
+
+                return this;
+            },
+            destroy: function() {
+                if (false === this._trigger('destroy')) {
+                    return this;
+                }
+
+                this._destroy();
+
+                this._trigger('destroyend');
+
+                this._element
+                    .removeData(pluginName)
+                    .removeAttr('data-' + pluginName.toLowerCase());
+
+                return this;
+            },
+            reload: function(options) {
+                if (false === this._trigger('reload')) {
+                    return this;
+                }
+
+                if (options) {
+                    this.options(options);
+                }
+
+                this._reload();
+
+                this._trigger('reloadend');
+
+                return this;
+            },
+            element: function() {
+                return this._element;
+            },
+            options: function(key, value) {
+                if (arguments.length === 0) {
+                    return $.extend({}, this._options);
+                }
+
+                if (typeof key === 'string') {
+                    if (typeof value === 'undefined') {
+                        return typeof this._options[key] === 'undefined' ?
+                                null :
+                                this._options[key];
+                    }
+
+                    this._options[key] = value;
+                } else {
+                    this._options = $.extend({}, this._options, key);
+                }
+
+                return this;
+            },
+            carousel: function() {
+                if (!this._carousel) {
+                    this._carousel = jCarousel.detectCarousel(this.options('carousel') || this._element);
+
+                    if (!this._carousel) {
+                        $.error('Could not detect carousel for plugin "' + pluginName + '"');
+                    }
+                }
+
+                return this._carousel;
+            },
+            _trigger: function(type, element, data) {
+                var event,
+                    defaultPrevented = false;
+
+                data = [this].concat(data || []);
+
+                (element || this._element).each(function() {
+                    event = $.Event((pluginName + ':' + type).toLowerCase());
+
+                    $(this).trigger(event, data);
+
+                    if (event.isDefaultPrevented()) {
+                        defaultPrevented = true;
+                    }
+                });
+
+                return !defaultPrevented;
+            }
+        };
+    };
+
+    jCarousel.plugin = function(pluginName, pluginPrototype) {
+        var Plugin = $[pluginName] = function(element, options) {
+            this._element = $(element);
+            this.options(options);
+
+            this._init();
+            this.create();
+        };
+
+        Plugin.fn = Plugin.prototype = $.extend(
+            {},
+            jCarousel.base(pluginName),
+            pluginPrototype
+        );
+
+        $.fn[pluginName] = function(options) {
+            var args        = Array.prototype.slice.call(arguments, 1),
+                returnValue = this;
+
+            if (typeof options === 'string') {
+                this.each(function() {
+                    var instance = $(this).data(pluginName);
+
+                    if (!instance) {
+                        return $.error(
+                            'Cannot call methods on ' + pluginName + ' prior to initialization; ' +
+                            'attempted to call method "' + options + '"'
+                        );
+                    }
+
+                    if (!$.isFunction(instance[options]) || options.charAt(0) === '_') {
+                        return $.error(
+                            'No such method "' + options + '" for ' + pluginName + ' instance'
+                        );
+                    }
+
+                    var methodValue = instance[options].apply(instance, args);
+
+                    if (methodValue !== instance && typeof methodValue !== 'undefined') {
+                        returnValue = methodValue;
+                        return false;
+                    }
+                });
+            } else {
+                this.each(function() {
+                    var instance = $(this).data(pluginName);
+
+                    if (instance instanceof Plugin) {
+                        instance.reload(options);
+                    } else {
+                        new Plugin(this, options);
+                    }
+                });
+            }
+
+            return returnValue;
+        };
+
+        return Plugin;
+    };
+}(jQuery));
+
+(function($, window) {
+    'use strict';
+
+    var toFloat = function(val) {
+        return parseFloat(val) || 0;
+    };
+
+    $.jCarousel.plugin('jcarousel', {
+        animating:   false,
+        tail:        0,
+        inTail:      false,
+        resizeTimer: null,
+        lt:          null,
+        vertical:    false,
+        rtl:         false,
+        circular:    false,
+        underflow:   false,
+        relative:    false,
+
+        _options: {
+            list: function() {
+                return this.element().children().eq(0);
+            },
+            items: function() {
+                return this.list().children();
+            },
+            animation:   400,
+            transitions: false,
+            wrap:        null,
+            vertical:    null,
+            rtl:         null,
+            center:      false
+        },
+
+        // Protected, don't access directly
+        _list:         null,
+        _items:        null,
+        _target:       $(),
+        _first:        $(),
+        _last:         $(),
+        _visible:      $(),
+        _fullyvisible: $(),
+        _init: function() {
+            var self = this;
+
+            this.onWindowResize = function() {
+                if (self.resizeTimer) {
+                    clearTimeout(self.resizeTimer);
+                }
+
+                self.resizeTimer = setTimeout(function() {
+                    self.reload();
+                }, 100);
+            };
+
+            return this;
+        },
+        _create: function() {
+            this._reload();
+
+            $(window).on('resize.jcarousel', this.onWindowResize);
+        },
+        _destroy: function() {
+            $(window).off('resize.jcarousel', this.onWindowResize);
+        },
+        _reload: function() {
+            this.vertical = this.options('vertical');
+
+            if (this.vertical == null) {
+                this.vertical = this.list().height() > this.list().width();
+            }
+
+            this.rtl = this.options('rtl');
+
+            if (this.rtl == null) {
+                this.rtl = (function(element) {
+                    if (('' + element.attr('dir')).toLowerCase() === 'rtl') {
+                        return true;
+                    }
+
+                    var found = false;
+
+                    element.parents('[dir]').each(function() {
+                        if ((/rtl/i).test($(this).attr('dir'))) {
+                            found = true;
+                            return false;
+                        }
+                    });
+
+                    return found;
+                }(this._element));
+            }
+
+            this.lt = this.vertical ? 'top' : 'left';
+
+            // Ensure before closest() call
+            this.relative = this.list().css('position') === 'relative';
+
+            // Force list and items reload
+            this._list  = null;
+            this._items = null;
+
+            var item = this.index(this._target) >= 0 ?
+                           this._target :
+                           this.closest();
+
+            // _prepare() needs this here
+            this.circular  = this.options('wrap') === 'circular';
+            this.underflow = false;
+
+            var props = {'left': 0, 'top': 0};
+
+            if (item.length > 0) {
+                this._prepare(item);
+                this.list().find('[data-jcarousel-clone]').remove();
+
+                // Force items reload
+                this._items = null;
+
+                this.underflow = this._fullyvisible.length >= this.items().length;
+                this.circular  = this.circular && !this.underflow;
+
+                props[this.lt] = this._position(item) + 'px';
+            }
+
+            this.move(props);
+
+            return this;
+        },
+        list: function() {
+            if (this._list === null) {
+                var option = this.options('list');
+                this._list = $.isFunction(option) ? option.call(this) : this._element.find(option);
+            }
+
+            return this._list;
+        },
+        items: function() {
+            if (this._items === null) {
+                var option = this.options('items');
+                this._items = ($.isFunction(option) ? option.call(this) : this.list().find(option)).not('[data-jcarousel-clone]');
+            }
+
+            return this._items;
+        },
+        index: function(item) {
+            return this.items().index(item);
+        },
+        closest: function() {
+            var self    = this,
+                pos     = this.list().position()[this.lt],
+                closest = $(), // Ensure we're returning a jQuery instance
+                stop    = false,
+                lrb     = this.vertical ? 'bottom' : (this.rtl && !this.relative ? 'left' : 'right'),
+                width;
+
+            if (this.rtl && this.relative && !this.vertical) {
+                pos += this.list().width() - this.clipping();
+            }
+
+            this.items().each(function() {
+                closest = $(this);
+
+                if (stop) {
+                    return false;
+                }
+
+                var dim = self.dimension(closest);
+
+                pos += dim;
+
+                if (pos >= 0) {
+                    width = dim - toFloat(closest.css('margin-' + lrb));
+
+                    if ((Math.abs(pos) - dim + (width / 2)) <= 0) {
+                        stop = true;
+                    } else {
+                        return false;
+                    }
+                }
+            });
+
+
+            return closest;
+        },
+        target: function() {
+            return this._target;
+        },
+        first: function() {
+            return this._first;
+        },
+        last: function() {
+            return this._last;
+        },
+        visible: function() {
+            return this._visible;
+        },
+        fullyvisible: function() {
+            return this._fullyvisible;
+        },
+        hasNext: function() {
+            if (false === this._trigger('hasnext')) {
+                return true;
+            }
+
+            var wrap = this.options('wrap'),
+                end = this.items().length - 1,
+                check = this.options('center') ? this._target : this._last;
+
+            return end >= 0 && !this.underflow &&
+                ((wrap && wrap !== 'first') ||
+                    (this.index(check) < end) ||
+                    (this.tail && !this.inTail)) ? true : false;
+        },
+        hasPrev: function() {
+            if (false === this._trigger('hasprev')) {
+                return true;
+            }
+
+            var wrap = this.options('wrap');
+
+            return this.items().length > 0 && !this.underflow &&
+                ((wrap && wrap !== 'last') ||
+                    (this.index(this._first) > 0) ||
+                    (this.tail && this.inTail)) ? true : false;
+        },
+        clipping: function() {
+            return this._element['inner' + (this.vertical ? 'Height' : 'Width')]();
+        },
+        dimension: function(element) {
+            return element['outer' + (this.vertical ? 'Height' : 'Width')](true);
+        },
+        scroll: function(target, animate, callback) {
+            if (this.animating) {
+                return this;
+            }
+
+            if (false === this._trigger('scroll', null, [target, animate])) {
+                return this;
+            }
+
+            if ($.isFunction(animate)) {
+                callback = animate;
+                animate  = true;
+            }
+
+            var parsed = $.jCarousel.parseTarget(target);
+
+            if (parsed.relative) {
+                var end    = this.items().length - 1,
+                    scroll = Math.abs(parsed.target),
+                    wrap   = this.options('wrap'),
+                    current,
+                    first,
+                    index,
+                    start,
+                    curr,
+                    isVisible,
+                    props,
+                    i;
+
+                if (parsed.target > 0) {
+                    var last = this.index(this._last);
+
+                    if (last >= end && this.tail) {
+                        if (!this.inTail) {
+                            this._scrollTail(animate, callback);
+                        } else {
+                            if (wrap === 'both' || wrap === 'last') {
+                                this._scroll(0, animate, callback);
+                            } else {
+                                if ($.isFunction(callback)) {
+                                    callback.call(this, false);
+                                }
+                            }
+                        }
+                    } else {
+                        current = this.index(this._target);
+
+                        if ((this.underflow && current === end && (wrap === 'circular' || wrap === 'both' || wrap === 'last')) ||
+                            (!this.underflow && last === end && (wrap === 'both' || wrap === 'last'))) {
+                            this._scroll(0, animate, callback);
+                        } else {
+                            index = current + scroll;
+
+                            if (this.circular && index > end) {
+                                i = end;
+                                curr = this.items().get(-1);
+
+                                while (i++ < index) {
+                                    curr = this.items().eq(0);
+                                    isVisible = this._visible.index(curr) >= 0;
+
+                                    if (isVisible) {
+                                        curr.after(curr.clone(true).attr('data-jcarousel-clone', true));
+                                    }
+
+                                    this.list().append(curr);
+
+                                    if (!isVisible) {
+                                        props = {};
+                                        props[this.lt] = this.dimension(curr);
+                                        this.moveBy(props);
+                                    }
+
+                                    // Force items reload
+                                    this._items = null;
+                                }
+
+                                this._scroll(curr, animate, callback);
+                            } else {
+                                this._scroll(Math.min(index, end), animate, callback);
+                            }
+                        }
+                    }
+                } else {
+                    if (this.inTail) {
+                        this._scroll(Math.max((this.index(this._first) - scroll) + 1, 0), animate, callback);
+                    } else {
+                        first  = this.index(this._first);
+                        current = this.index(this._target);
+                        start  = this.underflow ? current : first;
+                        index  = start - scroll;
+
+                        if (start <= 0 && ((this.underflow && wrap === 'circular') || wrap === 'both' || wrap === 'first')) {
+                            this._scroll(end, animate, callback);
+                        } else {
+                            if (this.circular && index < 0) {
+                                i    = index;
+                                curr = this.items().get(0);
+
+                                while (i++ < 0) {
+                                    curr = this.items().eq(-1);
+                                    isVisible = this._visible.index(curr) >= 0;
+
+                                    if (isVisible) {
+                                        curr.after(curr.clone(true).attr('data-jcarousel-clone', true));
+                                    }
+
+                                    this.list().prepend(curr);
+
+                                    // Force items reload
+                                    this._items = null;
+
+                                    var dim = this.dimension(curr);
+
+                                    props = {};
+                                    props[this.lt] = -dim;
+                                    this.moveBy(props);
+
+                                }
+
+                                this._scroll(curr, animate, callback);
+                            } else {
+                                this._scroll(Math.max(index, 0), animate, callback);
+                            }
+                        }
+                    }
+                }
+            } else {
+                this._scroll(parsed.target, animate, callback);
+            }
+
+            this._trigger('scrollend');
+
+            return this;
+        },
+        moveBy: function(properties, opts) {
+            var position = this.list().position(),
+                multiplier = 1,
+                correction = 0;
+
+            if (this.rtl && !this.vertical) {
+                multiplier = -1;
+
+                if (this.relative) {
+                    correction = this.list().width() - this.clipping();
+                }
+            }
+
+            if (properties.left) {
+                properties.left = (position.left + correction + toFloat(properties.left) * multiplier) + 'px';
+            }
+
+            if (properties.top) {
+                properties.top = (position.top + correction + toFloat(properties.top) * multiplier) + 'px';
+            }
+
+            return this.move(properties, opts);
+        },
+        move: function(properties, opts) {
+            opts = opts || {};
+
+            var option       = this.options('transitions'),
+                transitions  = !!option,
+                transforms   = !!option.transforms,
+                transforms3d = !!option.transforms3d,
+                duration     = opts.duration || 0,
+                list         = this.list();
+
+            if (!transitions && duration > 0) {
+                list.animate(properties, opts);
+                return;
+            }
+
+            var complete = opts.complete || $.noop,
+                css = {};
+
+            if (transitions) {
+                var backup = {
+                        transitionDuration: list.css('transitionDuration'),
+                        transitionTimingFunction: list.css('transitionTimingFunction'),
+                        transitionProperty: list.css('transitionProperty')
+                    },
+                    oldComplete = complete;
+
+                complete = function() {
+                    $(this).css(backup);
+                    oldComplete.call(this);
+                };
+                css = {
+                    transitionDuration: (duration > 0 ? duration / 1000 : 0) + 's',
+                    transitionTimingFunction: option.easing || opts.easing,
+                    transitionProperty: duration > 0 ? (function() {
+                        if (transforms || transforms3d) {
+                            // We have to use 'all' because jQuery doesn't prefix
+                            // css values, like transition-property: transform;
+                            return 'all';
+                        }
+
+                        return properties.left ? 'left' : 'top';
+                    })() : 'none',
+                    transform: 'none'
+                };
+            }
+
+            if (transforms3d) {
+                css.transform = 'translate3d(' + (properties.left || 0) + ',' + (properties.top || 0) + ',0)';
+            } else if (transforms) {
+                css.transform = 'translate(' + (properties.left || 0) + ',' + (properties.top || 0) + ')';
+            } else {
+                $.extend(css, properties);
+            }
+
+            if (transitions && duration > 0) {
+                list.one('transitionend webkitTransitionEnd oTransitionEnd otransitionend MSTransitionEnd', complete);
+            }
+
+            list.css(css);
+
+            if (duration <= 0) {
+                list.each(function() {
+                    complete.call(this);
+                });
+            }
+        },
+        _scroll: function(item, animate, callback) {
+            if (this.animating) {
+                if ($.isFunction(callback)) {
+                    callback.call(this, false);
+                }
+
+                return this;
+            }
+
+            if (typeof item !== 'object') {
+                item = this.items().eq(item);
+            } else if (typeof item.jquery === 'undefined') {
+                item = $(item);
+            }
+
+            if (item.length === 0) {
+                if ($.isFunction(callback)) {
+                    callback.call(this, false);
+                }
+
+                return this;
+            }
+
+            this.inTail = false;
+
+            this._prepare(item);
+
+            var pos     = this._position(item),
+                currPos = this.list().position()[this.lt];
+
+            if (pos === currPos) {
+                if ($.isFunction(callback)) {
+                    callback.call(this, false);
+                }
+
+                return this;
+            }
+
+            var properties = {};
+            properties[this.lt] = pos + 'px';
+
+            this._animate(properties, animate, callback);
+
+            return this;
+        },
+        _scrollTail: function(animate, callback) {
+            if (this.animating || !this.tail) {
+                if ($.isFunction(callback)) {
+                    callback.call(this, false);
+                }
+
+                return this;
+            }
+
+            var pos = this.list().position()[this.lt];
+
+            if (this.rtl && this.relative && !this.vertical) {
+                pos += this.list().width() - this.clipping();
+            }
+
+            if (this.rtl && !this.vertical) {
+                pos += this.tail;
+            } else {
+                pos -= this.tail;
+            }
+
+            this.inTail = true;
+
+            var properties = {};
+            properties[this.lt] = pos + 'px';
+
+            this._update({
+                target:       this._target.next(),
+                fullyvisible: this._fullyvisible.slice(1).add(this._visible.last())
+            });
+
+            this._animate(properties, animate, callback);
+
+            return this;
+        },
+        _animate: function(properties, animate, callback) {
+            callback = callback || $.noop;
+
+            if (false === this._trigger('animate')) {
+                callback.call(this, false);
+                return this;
+            }
+
+            this.animating = true;
+
+            var animation = this.options('animation'),
+                complete  = $.proxy(function() {
+                    this.animating = false;
+
+                    var c = this.list().find('[data-jcarousel-clone]');
+
+                    if (c.length > 0) {
+                        c.remove();
+                        this._reload();
+                    }
+
+                    this._trigger('animateend');
+
+                    callback.call(this, true);
+                }, this);
+
+            var opts = typeof animation === 'object' ?
+                           $.extend({}, animation) :
+                           {duration: animation},
+                oldComplete = opts.complete || $.noop;
+
+            if (animate === false) {
+                opts.duration = 0;
+            } else if (typeof $.fx.speeds[opts.duration] !== 'undefined') {
+                opts.duration = $.fx.speeds[opts.duration];
+            }
+
+            opts.complete = function() {
+                complete();
+                oldComplete.call(this);
+            };
+
+            this.move(properties, opts);
+
+            return this;
+        },
+        _prepare: function(item) {
+            var index  = this.index(item),
+                idx    = index,
+                wh     = this.dimension(item),
+                clip   = this.clipping(),
+                lrb    = this.vertical ? 'bottom' : (this.rtl ? 'left'  : 'right'),
+                center = this.options('center'),
+                update = {
+                    target:       item,
+                    first:        item,
+                    last:         item,
+                    visible:      item,
+                    fullyvisible: wh <= clip ? item : $()
+                },
+                curr,
+                isVisible,
+                margin,
+                dim;
+
+            if (center) {
+                wh /= 2;
+                clip /= 2;
+            }
+
+            if (wh < clip) {
+                while (true) {
+                    curr = this.items().eq(++idx);
+
+                    if (curr.length === 0) {
+                        if (!this.circular) {
+                            break;
+                        }
+
+                        curr = this.items().eq(0);
+
+                        if (item.get(0) === curr.get(0)) {
+                            break;
+                        }
+
+                        isVisible = this._visible.index(curr) >= 0;
+
+                        if (isVisible) {
+                            curr.after(curr.clone(true).attr('data-jcarousel-clone', true));
+                        }
+
+                        this.list().append(curr);
+
+                        if (!isVisible) {
+                            var props = {};
+                            props[this.lt] = this.dimension(curr);
+                            this.moveBy(props);
+                        }
+
+                        // Force items reload
+                        this._items = null;
+                    }
+
+                    dim = this.dimension(curr);
+
+                    if (dim === 0) {
+                        break;
+                    }
+
+                    wh += dim;
+
+                    update.last    = curr;
+                    update.visible = update.visible.add(curr);
+
+                    // Remove right/bottom margin from total width
+                    margin = toFloat(curr.css('margin-' + lrb));
+
+                    if ((wh - margin) <= clip) {
+                        update.fullyvisible = update.fullyvisible.add(curr);
+                    }
+
+                    if (wh >= clip) {
+                        break;
+                    }
+                }
+            }
+
+            if (!this.circular && !center && wh < clip) {
+                idx = index;
+
+                while (true) {
+                    if (--idx < 0) {
+                        break;
+                    }
+
+                    curr = this.items().eq(idx);
+
+                    if (curr.length === 0) {
+                        break;
+                    }
+
+                    dim = this.dimension(curr);
+
+                    if (dim === 0) {
+                        break;
+                    }
+
+                    wh += dim;
+
+                    update.first   = curr;
+                    update.visible = update.visible.add(curr);
+
+                    // Remove right/bottom margin from total width
+                    margin = toFloat(curr.css('margin-' + lrb));
+
+                    if ((wh - margin) <= clip) {
+                        update.fullyvisible = update.fullyvisible.add(curr);
+                    }
+
+                    if (wh >= clip) {
+                        break;
+                    }
+                }
+            }
+
+            this._update(update);
+
+            this.tail = 0;
+
+            if (!center &&
+                this.options('wrap') !== 'circular' &&
+                this.options('wrap') !== 'custom' &&
+                this.index(update.last) === (this.items().length - 1)) {
+
+                // Remove right/bottom margin from total width
+                wh -= toFloat(update.last.css('margin-' + lrb));
+
+                if (wh > clip) {
+                    this.tail = wh - clip;
+                }
+            }
+
+            return this;
+        },
+        _position: function(item) {
+            var first  = this._first,
+                pos    = first.position()[this.lt],
+                center = this.options('center'),
+                centerOffset = center ? (this.clipping() / 2) - (this.dimension(first) / 2) : 0;
+
+            if (this.rtl && !this.vertical) {
+                if (this.relative) {
+                    pos -= this.list().width() - this.dimension(first);
+                } else {
+                    pos -= this.clipping() - this.dimension(first);
+                }
+
+                pos += centerOffset;
+            } else {
+                pos -= centerOffset;
+            }
+
+            if (!center &&
+                (this.index(item) > this.index(first) || this.inTail) &&
+                this.tail) {
+                pos = this.rtl && !this.vertical ? pos - this.tail : pos + this.tail;
+                this.inTail = true;
+            } else {
+                this.inTail = false;
+            }
+
+            return -pos;
+        },
+        _update: function(update) {
+            var self = this,
+                current = {
+                    target:       this._target,
+                    first:        this._first,
+                    last:         this._last,
+                    visible:      this._visible,
+                    fullyvisible: this._fullyvisible
+                },
+                back = this.index(update.first || current.first) < this.index(current.first),
+                key,
+                doUpdate = function(key) {
+                    var elIn  = [],
+                        elOut = [];
+
+                    update[key].each(function() {
+                        if (current[key].index(this) < 0) {
+                            elIn.push(this);
+                        }
+                    });
+
+                    current[key].each(function() {
+                        if (update[key].index(this) < 0) {
+                            elOut.push(this);
+                        }
+                    });
+
+                    if (back) {
+                        elIn = elIn.reverse();
+                    } else {
+                        elOut = elOut.reverse();
+                    }
+
+                    self._trigger(key + 'in', $(elIn));
+                    self._trigger(key + 'out', $(elOut));
+
+                    self['_' + key] = update[key];
+                };
+
+            for (key in update) {
+                doUpdate(key);
+            }
+
+            return this;
+        }
+    });
+}(jQuery, window));
+
+(function($) {
+    'use strict';
+
+    $.jcarousel.fn.scrollIntoView = function(target, animate, callback) {
+        var parsed = $.jCarousel.parseTarget(target),
+            first  = this.index(this._fullyvisible.first()),
+            last   = this.index(this._fullyvisible.last()),
+            index;
+
+        if (parsed.relative) {
+            index = parsed.target < 0 ? Math.max(0, first + parsed.target) : last + parsed.target;
+        } else {
+            index = typeof parsed.target !== 'object' ? parsed.target : this.index(parsed.target);
+        }
+
+        if (index < first) {
+            return this.scroll(index, animate, callback);
+        }
+
+        if (index >= first && index <= last) {
+            if ($.isFunction(callback)) {
+                callback.call(this, false);
+            }
+
+            return this;
+        }
+
+        var items = this.items(),
+            clip = this.clipping(),
+            lrb  = this.vertical ? 'bottom' : (this.rtl ? 'left'  : 'right'),
+            wh   = 0,
+            curr;
+
+        while (true) {
+            curr = items.eq(index);
+
+            if (curr.length === 0) {
+                break;
+            }
+
+            wh += this.dimension(curr);
+
+            if (wh >= clip) {
+                var margin = parseFloat(curr.css('margin-' + lrb)) || 0;
+                if ((wh - margin) !== clip) {
+                    index++;
+                }
+                break;
+            }
+
+            if (index <= 0) {
+                break;
+            }
+
+            index--;
+        }
+
+        return this.scroll(index, animate, callback);
+    };
+}(jQuery));
+
+(function($) {
+    'use strict';
+
+    $.jCarousel.plugin('jcarouselControl', {
+        _options: {
+            target: '+=1',
+            event:  'click',
+            method: 'scroll'
+        },
+        _active: null,
+        _init: function() {
+            this.onDestroy = $.proxy(function() {
+                this._destroy();
+                this.carousel()
+                    .one('jcarousel:createend', $.proxy(this._create, this));
+            }, this);
+            this.onReload = $.proxy(this._reload, this);
+            this.onEvent = $.proxy(function(e) {
+                e.preventDefault();
+
+                var method = this.options('method');
+
+                if ($.isFunction(method)) {
+                    method.call(this);
+                } else {
+                    this.carousel()
+                        .jcarousel(this.options('method'), this.options('target'));
+                }
+            }, this);
+        },
+        _create: function() {
+            this.carousel()
+                .one('jcarousel:destroy', this.onDestroy)
+                .on('jcarousel:reloadend jcarousel:scrollend', this.onReload);
+
+            this._element
+                .on(this.options('event') + '.jcarouselcontrol', this.onEvent);
+
+            this._reload();
+        },
+        _destroy: function() {
+            this._element
+                .off('.jcarouselcontrol', this.onEvent);
+
+            this.carousel()
+                .off('jcarousel:destroy', this.onDestroy)
+                .off('jcarousel:reloadend jcarousel:scrollend', this.onReload);
+        },
+        _reload: function() {
+            var parsed   = $.jCarousel.parseTarget(this.options('target')),
+                carousel = this.carousel(),
+                active;
+
+            if (parsed.relative) {
+                active = carousel
+                    .jcarousel(parsed.target > 0 ? 'hasNext' : 'hasPrev');
+            } else {
+                var target = typeof parsed.target !== 'object' ?
+                                carousel.jcarousel('items').eq(parsed.target) :
+                                parsed.target;
+
+                active = carousel.jcarousel('target').index(target) >= 0;
+            }
+
+            if (this._active !== active) {
+                this._trigger(active ? 'active' : 'inactive');
+                this._active = active;
+            }
+
+            return this;
+        }
+    });
+}(jQuery));
+
+(function($) {
+    'use strict';
+
+    $.jCarousel.plugin('jcarouselPagination', {
+        _options: {
+            perPage: null,
+            item: function(page) {
+                return '<a href="#' + page + '">' + page + '</a>';
+            },
+            event:  'click',
+            method: 'scroll'
+        },
+        _carouselItems: null,
+        _pages: {},
+        _items: {},
+        _currentPage: null,
+        _init: function() {
+            this.onDestroy = $.proxy(function() {
+                this._destroy();
+                this.carousel()
+                    .one('jcarousel:createend', $.proxy(this._create, this));
+            }, this);
+            this.onReload = $.proxy(this._reload, this);
+            this.onScroll = $.proxy(this._update, this);
+        },
+        _create: function() {
+            this.carousel()
+                .one('jcarousel:destroy', this.onDestroy)
+                .on('jcarousel:reloadend', this.onReload)
+                .on('jcarousel:scrollend', this.onScroll);
+
+            this._reload();
+        },
+        _destroy: function() {
+            this._clear();
+
+            this.carousel()
+                .off('jcarousel:destroy', this.onDestroy)
+                .off('jcarousel:reloadend', this.onReload)
+                .off('jcarousel:scrollend', this.onScroll);
+
+            this._carouselItems = null;
+        },
+        _reload: function() {
+            var perPage = this.options('perPage');
+
+            this._pages = {};
+            this._items = {};
+
+            // Calculate pages
+            if ($.isFunction(perPage)) {
+                perPage = perPage.call(this);
+            }
+
+            if (perPage == null) {
+                this._pages = this._calculatePages();
+            } else {
+                var pp    = parseInt(perPage, 10) || 0,
+                    items = this._getCarouselItems(),
+                    page  = 1,
+                    i     = 0,
+                    curr;
+
+                while (true) {
+                    curr = items.eq(i++);
+
+                    if (curr.length === 0) {
+                        break;
+                    }
+
+                    if (!this._pages[page]) {
+                        this._pages[page] = curr;
+                    } else {
+                        this._pages[page] = this._pages[page].add(curr);
+                    }
+
+                    if (i % pp === 0) {
+                        page++;
+                    }
+                }
+            }
+
+            this._clear();
+
+            var self     = this,
+                carousel = this.carousel().data('jcarousel'),
+                element  = this._element,
+                item     = this.options('item'),
+                numCarouselItems = this._getCarouselItems().length;
+
+            $.each(this._pages, function(page, carouselItems) {
+                var currItem = self._items[page] = $(item.call(self, page, carouselItems));
+
+                currItem.on(self.options('event') + '.jcarouselpagination', $.proxy(function() {
+                    var target = carouselItems.eq(0);
+
+                    // If circular wrapping enabled, ensure correct scrolling direction
+                    if (carousel.circular) {
+                        var currentIndex = carousel.index(carousel.target()),
+                            newIndex     = carousel.index(target);
+
+                        if (parseFloat(page) > parseFloat(self._currentPage)) {
+                            if (newIndex < currentIndex) {
+                                target = '+=' + (numCarouselItems - currentIndex + newIndex);
+                            }
+                        } else {
+                            if (newIndex > currentIndex) {
+                                target = '-=' + (currentIndex + (numCarouselItems - newIndex));
+                            }
+                        }
+                    }
+
+                    carousel[this.options('method')](target);
+                }, self));
+
+                element.append(currItem);
+            });
+
+            this._update();
+        },
+        _update: function() {
+            var target = this.carousel().jcarousel('target'),
+                currentPage;
+
+            $.each(this._pages, function(page, carouselItems) {
+                carouselItems.each(function() {
+                    if (target.is(this)) {
+                        currentPage = page;
+                        return false;
+                    }
+                });
+
+                if (currentPage) {
+                    return false;
+                }
+            });
+
+            if (this._currentPage !== currentPage) {
+                this._trigger('inactive', this._items[this._currentPage]);
+                this._trigger('active', this._items[currentPage]);
+            }
+
+            this._currentPage = currentPage;
+        },
+        items: function() {
+            return this._items;
+        },
+        reloadCarouselItems: function() {
+            this._carouselItems = null;
+            return this;
+        },
+        _clear: function() {
+            this._element.empty();
+            this._currentPage = null;
+        },
+        _calculatePages: function() {
+            var carousel = this.carousel().data('jcarousel'),
+                items    = this._getCarouselItems(),
+                clip     = carousel.clipping(),
+                wh       = 0,
+                idx      = 0,
+                page     = 1,
+                pages    = {},
+                curr,
+                dim;
+
+            while (true) {
+                curr = items.eq(idx++);
+
+                if (curr.length === 0) {
+                    break;
+                }
+
+                dim = carousel.dimension(curr);
+
+                if ((wh + dim) > clip) {
+                    page++;
+                    wh = 0;
+                }
+
+                wh += dim;
+
+                if (!pages[page]) {
+                    pages[page] = curr;
+                } else {
+                    pages[page] = pages[page].add(curr);
+                }
+            }
+
+            return pages;
+        },
+        _getCarouselItems: function() {
+            if (!this._carouselItems) {
+                this._carouselItems = this.carousel().jcarousel('items');
+            }
+
+            return this._carouselItems;
+        }
+    });
+}(jQuery));
+
+(function($) {
+    'use strict';
+
+    $.jCarousel.plugin('jcarouselAutoscroll', {
+        _options: {
+            target:    '+=1',
+            interval:  3000,
+            autostart: true
+        },
+        _timer: null,
+        _init: function () {
+            this.onDestroy = $.proxy(function() {
+                this._destroy();
+                this.carousel()
+                    .one('jcarousel:createend', $.proxy(this._create, this));
+            }, this);
+
+            this.onAnimateEnd = $.proxy(this.start, this);
+        },
+        _create: function() {
+            this.carousel()
+                .one('jcarousel:destroy', this.onDestroy);
+
+            if (this.options('autostart')) {
+                this.start();
+            }
+        },
+        _destroy: function() {
+            this.stop();
+            this.carousel()
+                .off('jcarousel:destroy', this.onDestroy);
+        },
+        start: function() {
+            this.stop();
+
+            this.carousel()
+                .one('jcarousel:animateend', this.onAnimateEnd);
+
+            this._timer = setTimeout($.proxy(function() {
+                this.carousel().jcarousel('scroll', this.options('target'));
+            }, this), this.options('interval'));
+
+            return this;
+        },
+        stop: function() {
+            if (this._timer) {
+                this._timer = clearTimeout(this._timer);
+            }
+
+            this.carousel()
+                .off('jcarousel:animateend', this.onAnimateEnd);
+
+            return this;
+        }
+    });
+}(jQuery));
+
 /**
  * jGrowl 1.3.0
  *
@@ -11152,6 +15657,205 @@ jQuery.each( ajaxEvents.split("|"),
 
 
 })( jQuery, window );
+
+/*! Copyright (c) 2011 Brandon Aaron (http://brandonaaron.net)
+ * Licensed under the MIT License (LICENSE.txt).
+ *
+ * Thanks to: http://adomas.org/javascript-mouse-wheel/ for some pointers.
+ * Thanks to: Mathias Bank(http://www.mathias-bank.de) for a scope bug fix.
+ * Thanks to: Seamus Leahy for adding deltaX and deltaY
+ *
+ * Version: 3.0.6
+ * 
+ * Requires: 1.2.2+
+ */
+
+(function($) {
+
+var types = ['DOMMouseScroll', 'mousewheel'];
+
+if ($.event.fixHooks) {
+    for ( var i=types.length; i; ) {
+        $.event.fixHooks[ types[--i] ] = $.event.mouseHooks;
+    }
+}
+
+$.event.special.mousewheel = {
+    setup: function() {
+        if ( this.addEventListener ) {
+            for ( var i=types.length; i; ) {
+                this.addEventListener( types[--i], handler, false );
+            }
+        } else {
+            this.onmousewheel = handler;
+        }
+    },
+    
+    teardown: function() {
+        if ( this.removeEventListener ) {
+            for ( var i=types.length; i; ) {
+                this.removeEventListener( types[--i], handler, false );
+            }
+        } else {
+            this.onmousewheel = null;
+        }
+    }
+};
+
+$.fn.extend({
+    mousewheel: function(fn) {
+        return fn ? this.bind("mousewheel", fn) : this.trigger("mousewheel");
+    },
+    
+    unmousewheel: function(fn) {
+        return this.unbind("mousewheel", fn);
+    }
+});
+
+
+function handler(event) {
+    var orgEvent = event || window.event, args = [].slice.call( arguments, 1 ), delta = 0, returnValue = true, deltaX = 0, deltaY = 0;
+    event = $.event.fix(orgEvent);
+    event.type = "mousewheel";
+    
+    // Old school scrollwheel delta
+    if ( orgEvent.wheelDelta ) { delta = orgEvent.wheelDelta/120; }
+    if ( orgEvent.detail     ) { delta = -orgEvent.detail/3; }
+    
+    // New school multidimensional scroll (touchpads) deltas
+    deltaY = delta;
+    
+    // Gecko
+    if ( orgEvent.axis !== undefined && orgEvent.axis === orgEvent.HORIZONTAL_AXIS ) {
+        deltaY = 0;
+        deltaX = -1*delta;
+    }
+    
+    // Webkit
+    if ( orgEvent.wheelDeltaY !== undefined ) { deltaY = orgEvent.wheelDeltaY/120; }
+    if ( orgEvent.wheelDeltaX !== undefined ) { deltaX = -1*orgEvent.wheelDeltaX/120; }
+    
+    // Add event and delta to the front of the arguments
+    args.unshift(event, delta, deltaX, deltaY);
+    
+    return ($.event.dispatch || $.event.handle).apply(this, args);
+}
+
+})(jQuery);
+
+/*
+ * jQuery Hotkeys Plugin
+ * Copyright 2010, John Resig
+ * Dual licensed under the MIT or GPL Version 2 licenses.
+ *
+ * Based upon the plugin by Tzury Bar Yochay:
+ * http://github.com/tzuryby/hotkeys
+ *
+ * Original idea by:
+ * Binny V A, http://www.openjs.com/scripts/events/keyboard_shortcuts/
+*/
+
+(function(jQuery){
+
+	jQuery.hotkeys = {
+		version: "0.8+",
+
+		specialKeys: {
+			8: "backspace", 9: "tab", 13: "return", 16: "shift", 17: "ctrl", 18: "alt", 19: "pause",
+			20: "capslock", 27: "esc", 32: "space", 33: "pageup", 34: "pagedown", 35: "end", 36: "home",
+			37: "left", 38: "up", 39: "right", 40: "down", 45: "insert", 46: "del",
+			96: "0", 97: "1", 98: "2", 99: "3", 100: "4", 101: "5", 102: "6", 103: "7",
+			104: "8", 105: "9", 106: "*", 107: "+", 109: "-", 110: ".", 111 : "/",
+			112: "f1", 113: "f2", 114: "f3", 115: "f4", 116: "f5", 117: "f6", 118: "f7", 119: "f8",
+			120: "f9", 121: "f10", 122: "f11", 123: "f12", 144: "numlock", 145: "scroll", 188: ",", 190: ".",
+			191: "/", 224: "meta"
+		},
+
+		shiftNums: {
+			"`": "~", "1": "!", "2": "@", "3": "#", "4": "$", "5": "%", "6": "^", "7": "&",
+			"8": "*", "9": "(", "0": ")", "-": "_", "=": "+", ";": ": ", "'": "\"", ",": "<",
+			".": ">",  "/": "?",  "\\": "|"
+		}
+	};
+
+	function keyHandler( handleObj ) {
+
+		var origHandler = handleObj.handler,
+			//use namespace as keys so it works with event delegation as well
+			//will also allow removing listeners of a specific key combination
+			//and support data objects
+			keys = (handleObj.namespace || "").toLowerCase().split(" ");
+			keys = jQuery.map(keys, function(key) { return key.split("."); });
+
+		//no need to modify handler if no keys specified
+		//Added keys[0].substring(0, 12) to work with jQuery ui 1.9.0
+		//Added accordion, tabs and menu, then jquery ui can use keys.
+
+			if (keys.length === 1 && (keys[0] === "" || 
+			keys[0].substring(0, 12) === "autocomplete"  || 
+			keys[0].substring(0, 9) === "accordion"  || 
+			keys[0].substring(0, 4) === "tabs"  || 
+			keys[0].substring(0, 4) === "menu")) {
+			return;
+		}
+
+		handleObj.handler = function( event ) {
+			// Don't fire in text-accepting inputs that we didn't directly bind to
+			// important to note that $.fn.prop is only available on jquery 1.6+
+			if ( this !== event.target && (/textarea|select/i.test( event.target.nodeName ) ||
+				event.target.type === "text" || $(event.target).prop('contenteditable') == 'true' )) {
+				return;
+			}
+
+			// Keypress represents characters, not special keys
+			var special = event.type !== "keypress" && jQuery.hotkeys.specialKeys[ event.which ],
+				character = String.fromCharCode( event.which ).toLowerCase(),
+				key, modif = "", possible = {};
+
+			// check combinations (alt|ctrl|shift+anything)
+			if ( event.altKey && special !== "alt" ) {
+				modif += "alt_";
+			}
+
+			if ( event.ctrlKey && special !== "ctrl" ) {
+				modif += "ctrl_";
+			}
+
+			// TODO: Need to make sure this works consistently across platforms
+			if ( event.metaKey && !event.ctrlKey && special !== "meta" ) {
+				modif += "meta_";
+			}
+
+			if ( event.shiftKey && special !== "shift" ) {
+				modif += "shift_";
+			}
+
+			if ( special ) {
+				possible[ modif + special ] = true;
+
+			} else {
+				possible[ modif + character ] = true;
+				possible[ modif + jQuery.hotkeys.shiftNums[ character ] ] = true;
+
+				// "$" can be triggered as "Shift+4" or "Shift+$" or just "$"
+				if ( modif === "shift_" ) {
+					possible[ jQuery.hotkeys.shiftNums[ character ] ] = true;
+				}
+			}
+
+			for ( var i = 0, l = keys.length; i < l; i++ ) {
+				if ( possible[ keys[i] ] ) {
+					return origHandler.apply( this, arguments );
+				}
+			}
+		};
+	}
+
+	jQuery.each([ "keydown", "keyup", "keypress" ], function() {
+		jQuery.event.special[ this ] = { add: keyHandler };
+	});
+
+})( jQuery );
 
 /*! jQuery UI - v1.9.2 - 2012-11-23
 * http://jqueryui.com
@@ -26106,6 +30810,490 @@ $.extend( proto, {
 });
 
 })( jQuery );
+/*
+ * jQuery Search Light Plugin
+ * version: 1.0.1 (2009/07/29)
+ * @requires jQuery v1.3.0 or later
+ *
+ * Copyright 2009 Ryan Williams
+ *   http://ryanwilliams.org
+ *   searchlight@ryanwilliams.org
+ *
+ * Dual licensed under the MIT and GPL licenses:
+ *   http://www.opensource.org/licenses/mit-license.php
+ *   http://www.gnu.org/licenses/gpl.html
+ *
+ */
+(function($) {
+    var SearchLight = function(input, url, options) {
+        settings = $.extend({
+            minimumCharacters: 3,
+            searchDelay: 500,
+            limitPerCategory: 5,
+            actionFunction: null,
+            align: 'left',
+            width: 'auto',
+            showEffect: 'fade', // TODO
+            hideEffect: 'fade'  // TODO
+        }, options);
+        this._settings = settings;
+
+        var input = $(input);
+        var container = $(document.createElement('div'));
+        container.attr('class',  'searchlight-balloon');
+        container.css({
+            position: 'absolute',
+            top: input.offset().top + input.outerHeight(),
+            display: 'none'
+        });
+
+        if (settings.width == 'auto') {
+            container.css('width', input.outerWidth());
+        }
+        if (settings.align == 'left') {
+            container.css('left', input.offset().left);
+        } else if (settings.align == 'right') {
+            container.css('right', $(document.body).innerWidth() - (input.offset().left + input.outerWidth()));
+        }
+
+        var results = $(document.createElement('div'));
+        results.attr('class', 'searchlight-results-wrapper');
+        results.css({
+           // height: '100%'
+        });
+
+        //if ($.browser.msie && parseFloat($.browser.version) <= 7) {
+        //    results.css({
+        //        width: '100%'
+        //    });
+        //}
+
+        container.append(results);
+        $(document.body).append(container);
+
+
+        this._input = input;
+        this._container = container;
+        this._searchURL = url;
+        this._resultsContainer = results;
+
+        input.bind('focus.searchlight', {searchlight: this}, function(evt) {
+            var searchlight = evt.data.searchlight;
+            if (this.value.length >= settings.minimumCharacters) {
+                searchlight.search(this.value);
+            }
+        });
+        $(document.body).bind('mousedown.searchlight', {searchlight: this}, function(evt) {
+            var searchlight = evt.data.searchlight;
+
+            // Make sure we didn't click the searchlight
+            var node = evt.target;
+            var c = 0
+            while (node) {
+                // Clicked searchlight, so return
+                if (node == searchlight._input[0] || node == searchlight._container[0]) {
+                    return;
+                }
+                node = node.parentNode;
+            }
+
+            searchlight.hide();
+        });
+
+        // input.bind('keydown.searchlight', {searchlight: this}, function(evt) {
+//             var searchlight = evt.data.searchlight;
+//             if (evt.which == 38 && searchlight._selectedRow > 0) {
+//                 // Up arrow
+//                 searchlight.selectRow(searchlight._selectedRow-1);
+//             } else if (evt.which == 40 && searchlight._selectedRow < searchlight._rowCount -1) {
+//                 // Down arrow
+//                 searchlight.selectRow(searchlight._selectedRow+1);
+//             } else if (evt.which == 13 && searchlight._selectedRow > -1) {
+//                 searchlight.activateRow(searchlight._selectedRow);
+//             }
+//             if (evt.which == 13 || evt.which == 38 || evt.which == 40) {
+//                 evt.preventDefault();
+//             }
+//         });
+        input.bind('keyup.searchlight', {searchlight: this}, function(evt) {
+            var searchlight = evt.data.searchlight;
+            if (searchlight._searchDelayTimer) {
+                clearTimeout(searchlight._searchDelayTimer);
+            }
+            searchlight._searchDelayTimer = setTimeout(function() {
+                var input = searchlight._input[0];
+                if (input.value == searchlight._previousQuery) {
+                } else if (input.value.length >= settings.minimumCharacters) {
+                    searchlight.search(input.value);
+                } else {
+                    searchlight.hide();
+                }
+            }, settings.searchDelay);
+        });
+        input.bind('keypress.searchlight', {searchlight: this}, function(evt) {
+            var searchlight = evt.data.searchlight;
+        });
+        this._container.bind('mouseleave.searchlight', {searchlight: this}, function(evt) {
+            var searchlight = evt.data.searchlight;
+            searchlight.selectRow(-1);
+        });
+
+
+        this.resultAction = settings.actionFunction ? settings.actionFunction : this.defaultResultAction;
+    };
+    SearchLight.prototype.show = function() {
+        if (!this._container.is(':visible')) {
+            this._container.fadeIn('fast');
+        }
+    };
+    SearchLight.prototype.hide = function() {
+        if (this._disableHide) {
+            return;
+        }
+        this._container.fadeOut('fast');
+    };
+    SearchLight.prototype.search = function(query) {
+        var searchlight = this;
+        this._previousQuery = query;
+        if (this._previousXHR) {
+            this._previousXHR.abort();
+        }
+        this._previousXHR = $.getJSON(this._searchURL, {q: query}, function(results) {
+            searchlight.clearResults();
+            for (var i = 0; i < results.length; i++) {
+                var r = results[i]
+                if (r.results.length > 0) {
+                    searchlight.addResultCategory(r.title, r.results);
+                }
+            }
+            searchlight.show();
+        });
+    };
+    SearchLight.prototype.clearResults = function() {
+        this._categoryCount = 0;
+        this._rowCount = 0;
+        this._selectedRow = -1;
+        this._resultsContainer.html('<div class="searchlight-results"></div>');
+    };
+    SearchLight.prototype.addResultCategory = function(name, results) {
+        var first = true;
+        for (var i = 0; i < results.length; i++) {
+            var r = results[i];
+
+            var item = document.createElement('div');
+            $(item).attr('class', 'searchlight-not-selected');
+
+            item.className = "searchlight-item";
+
+            if (first) {
+            	var categoryHeading = document.createElement('div');
+            	categoryHeading.className = "searchlight-header";
+                $(categoryHeading).text(name);
+                this._resultsContainer.children('div').append(categoryHeading);
+                first = false;
+            }
+
+
+            $(item).append(r[1]);
+
+            $(item).bind('mousemove', {searchlight: this}, function(evt) {
+                var searchlight = evt.data.searchlight;
+                searchlight.selectRow(this._rowId);
+            });
+            $(item).bind('click', {searchlight: this}, function(evt) {
+                var searchlight = evt.data.searchlight;
+                searchlight.activateRow(this._rowId);
+            });
+
+            item._rowId = this._rowCount;
+            item._actionValue = r[0];
+            this._resultsContainer.children('div').append(item);
+            this._rowCount++;
+        }
+
+
+        this._categoryCount++;
+    };
+
+    SearchLight.prototype.selectRow = function(id) {
+        this._selectedRow = id;
+
+        	
+        this._resultsContainer.find('div.searchlight-item').each(function(i) {
+            if (this._rowId == id) {
+                if (!$(this).hasClass('searchlight-selected')) {
+                    $(this).removeClass('searchlight-not-selected');
+                    $(this).addClass('searchlight-selected');
+                }
+            } else {
+                if (!$(this).hasClass('searchlight-not-selected')) {
+                    $(this).removeClass('searchlight-selected');
+                    $(this).addClass('searchlight-not-selected');
+                }
+            }
+        });
+    };
+
+    SearchLight.prototype.activateRow = function(id) {
+        this.resultAction(this._resultsContainer.find('div.searchlight-item:eq('+ id +')')[0]._actionValue);
+    }
+
+    SearchLight.prototype.defaultResultAction = function(val) {
+        window.location.href = val;
+    };
+
+
+    $.fn.searchlight = function(url, options) {
+        this.each(function() {
+            new SearchLight(this, url, options);
+        });
+    };
+})(jQuery);
+
+/*
+    PDFObject v1.2.20111123
+    https://github.com/pipwerks/PDFObject
+    Copyright (c) Philip Hutchison
+    MIT-style license: http://pipwerks.mit-license.org/
+*/
+
+/*jslint browser: true, sloppy: true, white: true, plusplus: true */
+/*global ActiveXObject, window */
+
+var PDFObject = function (obj){
+
+    if(!obj || !obj.url){ return false; }
+
+    var pdfobjectversion = "1.2",
+        //Set reasonable defaults
+        id = obj.id || false,
+        width = obj.width || "100%",
+        height = obj.height || "100%",
+        pdfOpenParams = obj.pdfOpenParams,
+        url,
+        pluginTypeFound,
+
+        //declare functions
+        createAXO,
+        hasReaderActiveX,
+        hasReader,
+        hasGeneric,
+        pluginFound,
+        setCssForFullWindowPdf,
+        buildQueryString,
+        get,
+        embed;
+
+
+    /* ----------------------------------------------------
+       Supporting functions
+       ---------------------------------------------------- */
+
+    createAXO = function (type){
+        var ax;
+        try {
+            ax = new ActiveXObject(type);
+        } catch (e) {
+            //ensure ax remains null
+            ax = null;
+        }
+        return ax;
+    };
+
+    //Tests specifically for Adobe Reader (aka Acrobat) in Internet Explorer
+    hasReaderActiveX = function (){
+
+        var axObj = null;
+
+        if (window.ActiveXObject) {
+
+            axObj = createAXO("AcroPDF.PDF");
+
+            //If "AcroPDF.PDF" didn't work, try "PDF.PdfCtrl"
+            if(!axObj){ axObj = createAXO("PDF.PdfCtrl"); }
+
+            //If either "AcroPDF.PDF" or "PDF.PdfCtrl" are found, return true
+            if (axObj !== null) { return true; }
+
+        }
+
+        //If you got to this point, there's no ActiveXObject for PDFs
+        return false;
+
+    };
+
+
+
+    //Tests specifically for Adobe Reader (aka Adobe Acrobat) in non-IE browsers
+    hasReader = function (){
+
+        var i,
+            n = navigator.plugins,
+            count = n.length,
+            regx = /Adobe Reader|Adobe PDF|Acrobat/gi;
+
+        for(i=0; i<count; i++){
+            if(regx.test(n[i].name)){
+                return true;
+            }
+        }
+
+        return false;
+
+    };
+
+
+    //Detects unbranded PDF support
+    hasGeneric = function (){
+        var plugin = navigator.mimeTypes["application/pdf"];
+        return (plugin && plugin.enabledPlugin);
+    };
+
+
+    //Determines what kind of PDF support is available: Adobe or generic
+    pluginFound = function (){
+
+        var type = null;
+
+        if(hasReader() || hasReaderActiveX()){
+
+            type = "Adobe";
+
+        } else if(hasGeneric()) {
+
+            type = "generic";
+
+        }
+
+        return type;
+
+    };
+
+
+    //If setting PDF to fill page, need to handle some CSS first
+    setCssForFullWindowPdf = function (){
+
+        var html = document.getElementsByTagName("html"),
+            html_style,
+            body_style;
+
+        if(!html){ return false; }
+
+        html_style = html[0].style;
+        body_style = document.body.style;
+
+        html_style.height = "100%";
+        html_style.overflow = "hidden";
+        body_style.margin = "0";
+        body_style.padding = "0";
+        body_style.height = "100%";
+        body_style.overflow = "hidden";
+
+    };
+
+
+    //Creating a querystring for using PDF Open parameters when embedding PDF
+    buildQueryString = function(pdfParams){
+
+        var string = "",
+            prop;
+
+        if(!pdfParams){ return string; }
+
+        for (prop in pdfParams) {
+
+            if (pdfParams.hasOwnProperty(prop)) {
+
+                string += prop + "=";
+
+                if(prop === "search") {
+
+                    string += encodeURI(pdfParams[prop]);
+
+                } else {
+
+                    string += pdfParams[prop];
+
+                }
+
+                string += "&";
+
+            }
+
+        }
+
+        //Remove last ampersand
+        return string.slice(0, string.length - 1);
+
+    };
+
+
+    //Simple function for returning values from PDFObject
+    get = function(prop){
+
+        var value = null;
+
+        switch(prop){
+            case "url" : value = url; break;
+            case "id" : value = id; break;
+            case "width" : value = width; break;
+            case "height" : value = height; break;
+            case "pdfOpenParams" : value = pdfOpenParams; break;
+            case "pluginTypeFound" : value = pluginTypeFound; break;
+            case "pdfobjectversion" : value = pdfobjectversion; break;
+        }
+
+        return value;
+
+    };
+
+
+    /* ----------------------------------------------------
+       PDF Embedding functions
+       ---------------------------------------------------- */
+
+
+    embed = function(targetID){
+
+        if(!pluginTypeFound){ return false; }
+
+        var targetNode = null;
+
+        if(targetID){
+
+            //Allow users to pass an element OR an element's ID
+            targetNode = (targetID.nodeType && targetID.nodeType === 1) ? targetID : document.getElementById(targetID);
+
+            //Ensure target element is found in document before continuing
+            if(!targetNode){ return false; }
+
+        } else {
+
+            targetNode = document.body;
+            setCssForFullWindowPdf();
+            width = "100%";
+            height = "100%";
+
+        }
+
+        targetNode.innerHTML = '<object    data="' +url +'" type="application/pdf" width="' +width +'" height="' +height +'"></object>';
+
+        return targetNode.getElementsByTagName("object")[0];
+
+    };
+
+    //The hash (#) prevents odd behavior in Windows
+    //Append optional Adobe params for opening document
+    url = encodeURI(obj.url) + "#" + buildQueryString(pdfOpenParams);
+    pluginTypeFound = pluginFound();
+
+    this.get = function(prop){ return get(prop); };
+    this.embed = function(id){ return embed(id); };
+    this.pdfobjectversion = pdfobjectversion;
+
+    return this;
+
+};
 /*!
 Copyright © 2006-2007 Kevin C. Olbrich
 Copyright © 2010-2013 LIM SAS (http://lim.eu) - Julien Sanchez
