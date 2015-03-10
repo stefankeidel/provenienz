@@ -29,12 +29,12 @@ module.exports = function(grunt) {
 			},
 			ca_libs: {
 				files: {
-					'assets/ca.combined.min.js': ['assets/default/ca.combined.js']
+					'assets/default/ca.combined.min.js': ['assets/default/ca.combined.js']
 				}
 			},
 			bower: {
 				files: {
-					'assets/bower.combined.min.js': ['assets/default/bower.combined.js']
+					'assets/default/bower.combined.min.js': ['assets/default/bower.combined.js']
 				}
 			}
 		}
