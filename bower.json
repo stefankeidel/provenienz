@@ -26,6 +26,9 @@
 	"pdfobject": "~1.2",
 	"jquery.hotkeys": "*",
 	"blockui" : "*",
+	"jquery.autogrowtextarea": "*",
+	"jquery.scrollTo": "~1.4.3",
+	"jquery-tools": "./assets/lib/jquery/jquery.tools.js",
     "quantities": "./assets/lib/misc/quantities.js",
     "superfish": "./assets/lib/jquery/superfish.js",
     "jquery-json": "./assets/lib/jquery/jquery.json.js",
@@ -34,11 +37,11 @@
 	"jqueryui-autocomplete-html": "./assets/lib/jquery/jquery.ui.autocomplete.html.js",
 	"jqueryui-searchlight": "./assets/lib/jquery/jquery.searchlight.js",
 	"jquery-template": "./assets/lib/jquery/jquery.template.js",
+	"jquery-rotate": "./assets/lib/jquery/jQueryRotateCompressed.2.2.js",
 	"jquery-rotate": "./assets/lib/jquery/jQueryRotateCompressed.2.2.js"
   },
   "stash": {
     "fullcalendar": "~2.0.0",
-    "jquery-tokeninput": "~1.7.0",
-    "jquery.autogrowtextarea": "*"
+    "jquery-tokeninput": "~1.7.0"
   }
 }
