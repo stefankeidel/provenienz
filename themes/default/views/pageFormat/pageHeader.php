@@ -43,10 +43,9 @@
 		<meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0"/>
 
 		<title><?php print $this->appconfig->get("window_title").($vs_window_title ? " : {$vs_window_title}" : ''); ?></title>
-		<link href="<?php print $this->request->getBaseUrlPath(); ?>/assets/bower.combined.css" rel="stylesheet" type="text/css" /> <!-- include bower css before base.css so that we can override styles -->
+		<?php print AssetLoadManager::getLoadHTML($this->request); ?>
 		<link rel="stylesheet" href="<?php print $this->request->getThemeUrlPath(); ?>/css/base.css" type="text/css" media="screen" />
 		<link rel="stylesheet" href="<?php print $this->request->getThemeUrlPath(); ?>/css/sets.css" type="text/css" media="screen" />
-		<script type="text/javascript" src="<?php print $this->request->getBaseUrlPath(); ?>/assets/bower.combined.min.js" ></script>
 		<script type="text/javascript">window.caBasePath = '<?php print $this->request->getBaseUrlPath(); ?>';</script>
 		<!--[if (!IE)|(gte IE 8)]><!-->
 		<link href="<?php print $this->request->getBaseUrlPath(); ?>/assets/DV/viewer-datauri.css" media="screen" rel="stylesheet" type="text/css" />
@@ -58,21 +57,14 @@
 		<link href="<?php print $this->request->getBaseUrlPath(); ?>/plain.css" media="screen" rel="stylesheet" type="text/css" />
 		<![endif]-->
 		<link rel="stylesheet" href="<?php print $this->request->getBaseUrlPath(); ?>/assets/jquery/jquery-tileviewer/jquery.tileviewer.css" type="text/css" media="screen" />
-		<!-- disabling systematic call to fullcalendar.css as it is now called through AssetLoadManager:register('calendar') inside app/controllers/client/library/ListController.php (L52)
-        <link rel="stylesheet" href="<?php print $this->request->getBaseUrlPath(); ?>/assets/jquery/fullcalendar/fullcalendar.css" type="text/css" media="screen" />
-        -->
 
 <?php
-	print AssetLoadManager::getLoadHTML($this->request);
 	print MetaTagManager::getHTML();
 	
 	if (file_exists($this->request->getThemeDirectoryPath().'/css/local.css')) {
 		print '<link rel="stylesheet" href="'.$this->request->getThemeUrlPath().'/css/local.css" type="text/css" media="screen" />
 ';
 	}
-?>
-		<script type="text/javascript" src="<?php print $this->request->getBaseUrlPath(); ?>/assets/ca.combined.min.js" ></script>
-<?php
 	
 	//
 	// Pull in JS and CSS for debug bar

@@ -4,8 +4,8 @@ module.exports = function(grunt) {
 		pkg: grunt.file.readJSON('package.json'),
 		bower_concat: {
 			all: {
-				dest: 'assets/bower.combined.js',
-				cssDest: 'assets/bower.combined.css',
+				dest: 'assets/default/bower.combined.js',
+				cssDest: 'assets/default/bower.combined.css',
 				bowerOptions: {
 					relative: false
 				}
@@ -17,7 +17,7 @@ module.exports = function(grunt) {
 				src : [
 					'assets/ca/*'
 				],
-				dest : 'assets/ca.combined.js'
+				dest : 'assets/default/ca.combined.js'
 			}
 		},
 		uglify: {
@@ -29,12 +29,12 @@ module.exports = function(grunt) {
 			},
 			ca_libs: {
 				files: {
-					'assets/ca.combined.min.js': ['assets/ca.combined.js']
+					'assets/ca.combined.min.js': ['assets/default/ca.combined.js']
 				}
 			},
 			bower: {
 				files: {
-					'assets/bower.combined.min.js': ['assets/bower.combined.js']
+					'assets/bower.combined.min.js': ['assets/default/bower.combined.js']
 				}
 			}
 		}
