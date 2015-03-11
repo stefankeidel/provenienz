@@ -8,9 +8,21 @@ module.exports = function(grunt) {
 				cssDest: 'assets/default/bower.combined.css',
 				bowerOptions: {
 					relative: false
-				}
+				},
+				exclude: [
+					'fullcalendar', 'moment'
+				]
 			},
-
+			calendar: {
+				dest: 'assets/calendar/fullcalendar.combined.js',
+				cssDest: 'assets/calendar/fullcalendar.combined.css',
+				bowerOptions: {
+					relative: false
+				},
+				include: [
+					'fullcalendar', 'moment'
+				]
+			}
 		},
 		concat: {
 			ca_libs : {
@@ -35,6 +47,11 @@ module.exports = function(grunt) {
 			bower: {
 				files: {
 					'assets/default/bower.combined.min.js': ['assets/default/bower.combined.js']
+				}
+			},
+			fullcalendar: {
+				files: {
+					'assets/calendar/fullcalendar.combined.min.js': ['assets/calendar/fullcalendar.combined.js']
 				}
 			}
 		}

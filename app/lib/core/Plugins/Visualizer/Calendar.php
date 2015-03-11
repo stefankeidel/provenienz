@@ -263,13 +263,12 @@ class WLPlugVisualizerCalendar Extends BaseVisualizerPlugIn Implements IWLPlugVi
 	/**
 	 * Register any required javascript and CSS for loading
 	 *
-	 * @return void
+	 * @return array
 	 */
 	public function registerDependencies() {
-		$va_packages = array("fullcalendar");
+		$va_packages = array("calendar");
 		foreach($va_packages as $vs_package) { AssetLoadManager::register($vs_package); }
 		return $va_packages;
 	}
 	# ------------------------------------------------
 }
-?>
