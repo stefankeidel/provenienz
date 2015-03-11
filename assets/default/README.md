@@ -1,0 +1,1 @@
+Contains assets that are included in every request (the _default loadSet in assets.conf)

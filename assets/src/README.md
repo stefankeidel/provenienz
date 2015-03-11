@@ -1,0 +1,1 @@
+This directory contains client libraries that are treated as "local" bower packages and are therefore built into minified assets. The files in here should not be included directly or via assets.conf!

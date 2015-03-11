@@ -10,7 +10,8 @@ module.exports = function(grunt) {
 					relative: false
 				},
 				exclude: [
-					'fullcalendar', 'moment'
+					'fullcalendar', 'moment',
+					'google-geolocationmarker', 'google-markerclusterer', 'google-pickonmap', 'jquery-timers'
 				]
 			},
 			calendar: {
@@ -22,12 +23,22 @@ module.exports = function(grunt) {
 				include: [
 					'fullcalendar', 'moment'
 				]
+			},
+			google: {
+				dest: 'assets/google/google.combined.js',
+				cssDest: 'assets/google/google.combined.css',
+				bowerOptions: {
+					relative: false
+				},
+				include: [
+					'google-geolocationmarker', 'google-markerclusterer', 'google-pickonmap', 'jquery-timers'
+				]
 			}
 		},
 		concat: {
 			ca_libs : {
 				src : [
-					'assets/ca/*'
+					'assets/src/ca/*'
 				],
 				dest : 'assets/default/ca.combined.js'
 			}
@@ -52,6 +63,11 @@ module.exports = function(grunt) {
 			fullcalendar: {
 				files: {
 					'assets/calendar/fullcalendar.combined.min.js': ['assets/calendar/fullcalendar.combined.js']
+				}
+			},
+			google: {
+				files: {
+					'assets/google/google.combined.min.js': ['assets/google/google.combined.js']
 				}
 			}
 		}
