@@ -25,8 +25,7 @@
  *
  * ----------------------------------------------------------------------
  */
- 
-	AssetLoadManager::register("panel");
+
 	$t_item = $this->getVar('t_item');
 	
 	$vs_table_name = $t_item->tableName();

@@ -25,8 +25,7 @@
  *
  * ----------------------------------------------------------------------
  */
- 
-	AssetLoadManager::register("panel");
+
 	$t_item = $this->getVar('t_item');
 	
 	$vb_queue_enabled = (bool)$this->request->config->get('queue_enabled');

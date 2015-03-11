@@ -163,7 +163,6 @@
  		# Sidebar info handler
  		# -------------------------------------------------------
  		public function info($pa_parameters) {
- 			AssetLoadManager::register('panel');
  			parent::info($pa_parameters);
  			$vn_representation_id = (isset($pa_parameters['representation_id'])) ? $pa_parameters['representation_id'] : null;
  		

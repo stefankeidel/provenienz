@@ -60,9 +60,6 @@ class ElementsController extends BaseEditorController {
 	}
 	# -------------------------------------------------------
 	public function Edit($pa_values=null, $pa_options=null){
-		AssetLoadManager::register('bundleableEditor');
-		
-		
 		$t_element = $this->getElementObject();
 		$t_restriction = new ca_metadata_type_restrictions(null, true);
 		

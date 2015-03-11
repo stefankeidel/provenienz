@@ -37,7 +37,6 @@
  		# -------------------------------------------------------
  		public function Index() {
  			AssetLoadManager::register('tableList');
- 			AssetLoadManager::register('bundleableEditor');
 			
 			$o_result_context = new ResultContext($this->request, 'ca_commerce_orders', 'basic_search_order');
  			$this->_initView($o_result_context);

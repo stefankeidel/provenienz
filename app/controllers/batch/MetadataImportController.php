@@ -61,10 +61,6 @@
  				return;
  			}
  			
- 			AssetLoadManager::register('bundleableEditor');
- 			AssetLoadManager::register('panel');
- 			
- 			
  			$this->opo_datamodel = Datamodel::load();
  			$this->opo_app_plugin_manager = new ApplicationPluginManager();
  			$this->opo_result_context = new ResultContext($po_request, $this->ops_table_name, ResultContext::getLastFind($po_request, $this->ops_table_name));

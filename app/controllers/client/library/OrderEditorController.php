@@ -44,8 +44,6 @@
  			parent::__construct($po_request, $po_response, $pa_view_paths);
  			
  			AssetLoadManager::register('tableList');
- 			AssetLoadManager::register('bundleableEditor');
- 			AssetLoadManager::register("panel");
  			
  			$this->opo_app_plugin_manager = new ApplicationPluginManager();
  			

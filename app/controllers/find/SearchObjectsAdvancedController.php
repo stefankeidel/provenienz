@@ -90,7 +90,6 @@
  		public function Index($pa_options=null) {
  			$pa_options['search'] = $this->opo_browse;
  			AssetLoadManager::register('imageScroller');
- 			AssetLoadManager::register('panel');
  			return parent::Index($pa_options);
  		}
  		# -------------------------------------------------------

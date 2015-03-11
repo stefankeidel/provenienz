@@ -26,8 +26,6 @@
  * ----------------------------------------------------------------------
  */
  	require_once(__CA_LIB_DIR__.'/ca/DashboardManager.php');
-
-	AssetLoadManager::register('dashboard');			// adds caUI dashboard library
 ?>
 
 <!-- Empty DIV uses for the "popup" widget chooser panel -->

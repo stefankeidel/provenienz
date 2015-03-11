@@ -277,7 +277,6 @@
  		 */
  		protected function _initView($pa_options=null) {
  			// load required javascript
- 			AssetLoadManager::register('bundleableEditor');
  			AssetLoadManager::register('imageScroller');
  			AssetLoadManager::register('ckeditor');
 

@@ -41,7 +41,6 @@ class ObjectEditorController extends BaseEditorController {
 	# -------------------------------------------------------
 	public function __construct(&$po_request, &$po_response, $pa_view_paths=null) {
 		parent::__construct($po_request, $po_response, $pa_view_paths);
-		AssetLoadManager::register('panel');
 	}
 	# -------------------------------------------------------
 	public function Edit($pa_values=null, $pa_options=null) {

@@ -39,9 +39,7 @@
  		}
  		# -------------------------------------------------------
  		protected function _initView($pa_options=null) {
- 			AssetLoadManager::register('bundleableEditor');
  			AssetLoadManager::register('sortableUI');
- 			AssetLoadManager::register('bundleListEditorUI');
  			
  			$va_init = parent::_initView($pa_options);
  			if (!$va_init[1]->getPrimaryKey()) {

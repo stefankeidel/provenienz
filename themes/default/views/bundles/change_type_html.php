@@ -25,8 +25,7 @@
  *
  * ----------------------------------------------------------------------
  */
- 
-	AssetLoadManager::register("panel");
+
 	$t_item = $this->getVar('t_item');
 	//if (sizeof($t_item->getTypeList()) <= 1) { return ''; }
 ?>

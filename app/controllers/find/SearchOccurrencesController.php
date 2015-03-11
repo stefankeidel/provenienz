@@ -76,7 +76,6 @@
 			$this->opo_browse = new OccurrenceBrowse($this->opo_result_context->getParameter('browse_id'), 'providence');
 			 
  			AssetLoadManager::register('imageScroller');
- 			AssetLoadManager::register('panel');
 		}
  		# -------------------------------------------------------
  		/**

@@ -59,8 +59,6 @@ class BaseEditorController extends ActionController {
 	public function __construct(&$po_request, &$po_response, $pa_view_paths=null) {
 		parent::__construct($po_request, $po_response, $pa_view_paths);
 
-		AssetLoadManager::register('bundleListEditorUI');
-		AssetLoadManager::register('panel');
 		AssetLoadManager::register('maps');
 		AssetLoadManager::register('openlayers');
 
@@ -77,8 +75,6 @@ class BaseEditorController extends ActionController {
 	 *
 	 */
 	public function Edit($pa_values=null, $pa_options=null) {
-		AssetLoadManager::register('panel');
-
 		list($vn_subject_id, $t_subject, $t_ui, $vn_parent_id, $vn_above_id) = $this->_initView($pa_options);
 		$vs_mode = $this->request->getParameter('mode', pString);
 
@@ -973,7 +969,6 @@ class BaseEditorController extends ActionController {
 	 */
 	protected function _initView($pa_options=null) {
 		// load required javascript
-		AssetLoadManager::register('bundleableEditor');
 		AssetLoadManager::register('imageScroller');
 		AssetLoadManager::register('datePickerUI');
 
