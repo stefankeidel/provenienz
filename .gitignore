@@ -19,3 +19,5 @@ app/log/log*.txt
 themes/default/css/local.css
 node_modules/
 bower_components/
+themes/default/views/bundles/inspector_info.php
+

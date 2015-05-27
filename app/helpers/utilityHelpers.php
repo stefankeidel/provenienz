@@ -456,11 +456,19 @@ function caFileIsIncludable($ps_file) {
 	 * @return bool
 	 */
 	function caIsValidFilePath($ps_path) {
-		if (!$ps_path || (preg_match("/[^\/A-Za-z0-9\.:\ _\\\-]+/", $ps_path)) || !file_exists($ps_path)) { return false; }
+		// strip quotes from path if present since they'll cause file_exists() to fail
+		$ps_path = preg_replace("!^\"!", "", $ps_path);
+		$ps_path = preg_replace("!\"$!", "", $ps_path);
+		if (!$ps_path || (preg_match("/[^\/A-Za-z0-9\.:\ _\(\)\\\-]+/", $ps_path)) || !file_exists($ps_path)) { return false; }
 
 		return true;
 	}
 	# ----------------------------------------
+	/**
+	 * Returns constant indicating class of operating system that system is running on
+	 *
+	 * @return int Returns constant OS_WIN32 for windows, OS_POSIX for Posix (Eg. Linux, MacOS)
+	 */
 	function caGetOSFamily() {
 		switch(strtoupper(substr(PHP_OS, 0, 3))	) {
 			case 'WIN':
@@ -470,6 +478,24 @@ function caFileIsIncludable($ps_file) {
 				return OS_POSIX;
 				break;
 		}
+	}
+	# ----------------------------------------
+	/**
+	 * Returns true if running on a Windows system
+	 *
+	 * @return bool
+	 */
+	function caIsWindows() {
+		return (caGetOSFamily() === OS_WIN32);
+	}
+	# ----------------------------------------
+	/**
+	 * Returns true if running on a POSIX system
+	 *
+	 * @return bool
+	 */
+	function caIsPOSIX() {
+		return (caGetOSFamily() === OS_POSIX);
 	}
 	# ----------------------------------------
 	function caGetPHPVersion() {
@@ -726,7 +752,7 @@ function caFileIsIncludable($ps_file) {
 	 * @return boolean true if it appears to be valid URL, false if not
 	 */
 	function isURL($ps_url) {
-		if (preg_match("!(http|ftp|https|rtmp|rtsp):\/\/[\w\-_]+(\.[\w\-_]+)*([\w\-\.,@?^=%&;:/~\+#]*[\w\-\@?^=%&/~\+#])?!", $ps_url, $va_matches)) {
+		if (preg_match("!(http|ftp|https|rtmp|rtsp|mysql):\/\/[\w\-_]+(\.[\w\-_]+)*([\w\-\.,@?^=%&;:/~\+#]*[\w\-\@?^=%&/~\+#])?!", $ps_url, $va_matches)) {
 			return array(
 				'protocol' => $va_matches[1],
 				'url' => $ps_url
@@ -878,14 +904,12 @@ function caFileIsIncludable($ps_file) {
 	 * format needed for calculations (eg 54.33)
 	 *
 	 * @param string $ps_value The value to convert
-	 * @param string $locale The locale of the value
+	 * @param string $ps_locale The locale of the value
 	 * @return float The converted value
 	 */
-	function caConvertLocaleSpecificFloat($ps_value, $locale = "en_US") {
-		$vo_locale = new Zend_Locale($locale);
-
+	function caConvertLocaleSpecificFloat($ps_value, $ps_locale = "en_US") {
 		try {
-			return Zend_Locale_Format::getNumber($ps_value, array('locale' => $locale));
+			return Zend_Locale_Format::getNumber($ps_value, array('locale' => $ps_locale));
 		} catch (Zend_Locale_Exception $e) { // happens when you enter 54.33 but 54,33 is expected in the current locale
 			return floatval($ps_value);
 		}
@@ -900,8 +924,6 @@ function caFileIsIncludable($ps_file) {
 	 * @return float The converted value
 	 */
 	function caConvertFloatToLocale($pn_value, $locale = "en_US") {
-		$vo_locale = new Zend_Locale($locale);
-
 		try {
 			return Zend_Locale_Format::toNumber($pn_value, array('locale' => $locale));
 		} catch (Zend_Locale_Exception $e) {
@@ -912,10 +934,17 @@ function caFileIsIncludable($ps_file) {
 	/**
 	 * Get the decimal separator
 	 *
-	 * @param string $locale Which locale is to be used to determine the value
+	 * @param string $locale Which locale is to be used to determine the value.
+	 * 		If not set, fall back to UI locale. If UI locale is not set, fall back to "en_US"
 	 * @return string The separator
 	 */
-	function caGetDecimalSeparator($locale = "en_US") {
+	function caGetDecimalSeparator($locale = null) {
+		if(!$locale) {
+			global $g_ui_locale;
+			$locale = $g_ui_locale;
+			if(!$locale) { $locale = 'en_US'; }
+		}
+
 		$va_symbols = Zend_Locale_Data::getList($locale,'symbols');
 		if(isset($va_symbols['decimal'])){
 			return $va_symbols['decimal'];
@@ -1768,7 +1797,7 @@ function caFileIsIncludable($ps_file) {
 					continue;
 				}
 
-				if ((!preg_match("!^[\p{L}\p{N}\p{P}]+$!", $vm_v)) || (!mb_detect_encoding($vm_v))) {
+				if ((!preg_match("!^\X+$!", $vm_v)) || (!mb_detect_encoding($vm_v))) {
 					unset($pa_array[$vn_k]);
 				}
 			}
@@ -1939,13 +1968,16 @@ function caFileIsIncludable($ps_file) {
 	}
 	# ----------------------------------------
 	/**
-	 *
-	 *
+	 * Return search result instance for given table and id list
+	 * @param string $ps_table the table name
+	 * @param array $pa_ids a list of primary key values
+	 * @param null|array $pa_options @see BundlableLabelableBaseModelWithAttributes::makeSearchResult
+	 * @return null|SearchResult
 	 */
-	function caMakeSearchResult($ps_table, $pa_ids) {
+	function caMakeSearchResult($ps_table, $pa_ids, $pa_options=null) {
 		$o_dm = Datamodel::load();
 		if ($t_instance = $o_dm->getInstanceByTableName('ca_objects', true)) {	// get an instance of a model inherits from BundlableLabelableBaseModelWithAttributes; doesn't matter which one
-			return $t_instance->makeSearchResult($ps_table, $pa_ids);
+			return $t_instance->makeSearchResult($ps_table, $pa_ids, $pa_options);
 		}
 		return null;
 	}
@@ -2277,26 +2309,6 @@ function caFileIsIncludable($ps_file) {
 	}
 	# ----------------------------------------
 	/**
-	 * Generate a GUID 
-	 *
-	 * @return string
-	 */
-	function caGenerateGUID(){
-		if (function_exists("openssl_random_pseudo_bytes")) {
-			$vs_data = openssl_random_pseudo_bytes(16);
-		} else {
-			$vs_data = '';
-			for($i=0; $i < 16; $i++) {
-				$vs_data .= chr(mt_rand(0, 255));
-			}
-		}
-		$vs_data[6] = chr(ord($vs_data[6]) & 0x0f | 0x40); // set version to 0100
-		$vs_data[8] = chr(ord($vs_data[8]) & 0x3f | 0x80); // set bits 6-7 to 10
-
-		return vsprintf('%s%s-%s-%s-%s-%s%s%s', str_split(bin2hex($vs_data), 4));
-	}
-	# ----------------------------------------
-	/**
  	 * Query external web service and return whatever body it returns as string
  	 * @param string $ps_url URL of the web service to query
 	 * @return string
@@ -2362,12 +2374,12 @@ function caFileIsIncludable($ps_file) {
 	}
 	# ----------------------------------------
 	/**
-	 * 
+	 * Parse generic dimension (weight or length)
+	 * @param string $ps_value value to parse
+	 * @param null|array $pa_options options array
+	 * @return bool|null|Zend_Measure_Length|Zend_Measure_Weight
 	 */
 	function caParseDimension($ps_value, $pa_options=null) {
-		global $g_ui_locale;
-		$vs_locale = caGetOption('locale', $pa_options, $g_ui_locale);
-		
 		try {
 			if ($vo_length = caParseLengthDimension($ps_value, $pa_options)) {
 				return $vo_length;
@@ -2388,7 +2400,9 @@ function caFileIsIncludable($ps_file) {
 	}
 	# ----------------------------------------
 	/**
-	 * 
+	 * Get length unit type as Zend constant, e.g. 'ft.' = Zend_Measure_Length::FEET
+	 * @param string $ps_unit
+	 * @return null|string
 	 */
 	function caGetLengthUnitType($ps_unit) {
 		switch($ps_unit) {
@@ -2457,12 +2471,16 @@ function caFileIsIncludable($ps_file) {
 	}
 	# ----------------------------------------
 	/**
-	 * 
+	 * Parse length dimension
+	 * @param string $ps_value
+	 * @param null|array $pa_options
+	 * @return bool|null|Zend_Measure_Length
+	 * @throws Exception
 	 */
 	function caParseLengthDimension($ps_value, $pa_options=null) {
 		global $g_ui_locale;
 		$vs_locale = caGetOption('locale', $pa_options, $g_ui_locale);
-	
+
 		$pa_values = array(caConvertFractionalNumberToDecimal(trim($ps_value), $vs_locale));
 		
 		$vo_parsed_measurement = null;
@@ -2512,7 +2530,11 @@ function caFileIsIncludable($ps_file) {
 	}
 	# ----------------------------------------
 	/**
-	 * 
+	 * Parse weight dimension
+	 * @param string $ps_value value to parse
+	 * @param null|array $pa_options options array
+	 * @return bool|null|Zend_Measure_Weight
+	 * @throws Exception
 	 */
 	function caParseWeightDimension($ps_value, $pa_options=null) {
 		global $g_ui_locale;
@@ -2526,7 +2548,6 @@ function caFileIsIncludable($ps_file) {
 			if (preg_match("!^([\d\.\,/ ]+)[ ]*([^\d ]+)!", $vs_expression, $va_matches)) {
 				$vs_value = trim($va_matches[1]);
 				$va_values = explode(" ", $vs_value);
-				$vs_unit_expression = strtolower(trim($va_matches[2]));
 				if ($vs_expression = trim(str_replace($va_matches[0], '', $vs_expression))) {
 					array_unshift($pa_values, $vs_expression);
 				}
@@ -2595,9 +2616,8 @@ function caFileIsIncludable($ps_file) {
 					throw new Exception(_t('Not a valid measurement'));
 				}
 				if ($o_tmp->getValue() < 0) {
-					// length can't be negative in our universe
+					// weight can't be negative in our universe
 					throw new Exception(_t('Must not be less than zero'));
-					return false;
 				}
 				
 				if ($vo_parsed_measurement) {
@@ -2616,6 +2636,24 @@ function caFileIsIncludable($ps_file) {
 	}
 	# ----------------------------------------
 	/**
+	 * Generate a GUID 
+	 */
+	function caGenerateGUID(){
+		if (function_exists("openssl_random_pseudo_bytes")) {
+			$vs_data = openssl_random_pseudo_bytes(16);
+		} else {
+			$vs_data = '';
+			for($i=0; $i < 16; $i++) {
+				$vs_data .= chr(mt_rand(0, 255));
+			}
+		}
+		$vs_data[6] = chr(ord($vs_data[6]) & 0x0f | 0x40); // set version to 0100
+		$vs_data[8] = chr(ord($vs_data[8]) & 0x3f | 0x80); // set bits 6-7 to 10
+
+		return vsprintf('%s%s-%s-%s-%s-%s%s%s', str_split(bin2hex($vs_data), 4));
+	}
+	# ----------------------------------------
+	/**
 	 * Push a value to a fixed length stack
 	 * @param $pm_val
 	 * @param $pa_stack
@@ -2628,5 +2666,73 @@ function caFileIsIncludable($ps_file) {
 			$pa_stack = array_slice($pa_stack, (sizeof($pa_stack) - $pn_stack_max_len));
 		}
 		return $pa_stack;
+	}
+	# ----------------------------------------
+	/**
+	 * Simple helper to figure out if there is a value in the initial values array
+	 * (the one that we feed to the initialize bundle javascript)
+	 * @param string $ps_id_prefix the id prefix for the field in question, used to figure out what format the array has
+	 * @param array|string $pa_initial_values
+	 * @return bool
+	 */
+	function caInitialValuesArrayHasValue($ps_id_prefix, $pa_initial_values=array()) {
+		// intrinsic
+		if (is_string($pa_initial_values)) {
+			return (strlen($pa_initial_values) > 0);
+		}
+
+		// attributes
+		if (preg_match("/attribute/", $ps_id_prefix)) {
+			foreach ($pa_initial_values as $va_val) {
+				foreach ($va_val as $vs_subfield => $vs_subfield_val) {
+					if ($vs_subfield === 'locale_id') {
+						continue;
+					}
+					if ($vs_subfield_val) {
+						return true;
+					}
+				}
+			}
+		} elseif (preg_match("/Labels$/", $ps_id_prefix)) { // labels
+			return (sizeof($pa_initial_values) > 0);
+		} elseif (preg_match("/\_rel$/", $ps_id_prefix)) {
+			return (sizeof($pa_initial_values) > 0);
+		}
+
+		return false;
+	}
+	# ----------------------------------------
+	/** 
+	 * Determine if CURL functions are available
+	 *
+	 * @return bool
+	 */
+	function caCurlIsAvailable() {
+		if ((bool)ini_get('safe_mode')) { return false; }
+
+		return function_exists('curl_init');
+	}
+	# ----------------------------------------
+	/**
+	 * Returns the maximum depth of an array
+	 *
+	 * @param array $pa_array
+	 * @return int
+	 */
+	function caArrayDepth($pa_array) {
+		$vn_max_indentation = 1;
+
+		$va_array_str = print_r($pa_array, true);
+		$va_lines = explode("\n", $va_array_str);
+
+		foreach ($va_lines as $vs_line) {
+			$vn_indentation = (strlen($vs_line) - strlen(ltrim($vs_line))) / 4;
+
+			if ($vn_indentation > $vn_max_indentation) {
+				$vn_max_indentation = $vn_indentation;
+			}
+		}
+
+		return ceil(($vn_max_indentation - 1) / 2) + 1;
 	}
 	# ----------------------------------------
