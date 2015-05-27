@@ -40,7 +40,6 @@ var caUI = caUI || {};
 			page: 1,
 			sidebar: false,
 			editButton: 'Edit',
-			downloadButton: 'Download',
 			closeButton: 'Close',
 			sectionsAreSelectable: false,
 			selectionRecordURL: null
@@ -469,33 +468,49 @@ var caUI = caUI || {};
 		// --------------------------------------------------------------------------------
 		// Define methods
 		// --------------------------------------------------------------------------------
-		that.registerBundle = function(id) {
+		/**
+		 * Register a bundle
+		 * @param id
+		 * @param force
+		 */
+		that.registerBundle = function(id, force) {
 			that.bundles.push(id);
-			that.bundleStates[id] = (that.cookieJar.get(id) == 'closed') ? "closed" : "open";	// default to open
-			that.bundleDictionaryStates[id] = (that.cookieJar.get(id + 'DictionaryEntry') == 'open') ? "open" : "closed";	// default to closed
+			var bundleState;
 
-			if (that.bundleStates[id] == "closed") {
+			if(force) { // if override is set, use it
+				bundleState = force;
+			} else { // otherwise use cookiejar and default to open
+				bundleState = (that.cookieJar.get(id) == 'closed') ? 'closed' : 'open';
+			}
+
+			that.bundleStates[id] = bundleState;
+			that.bundleDictionaryStates[id] = (that.cookieJar.get(id + 'DictionaryEntry') == 'open') ? 'closed' : 'open';	// default to closed
+
+			// actually open/close elements
+			if (that.bundleStates[id] == 'closed') {
 				that.close(id, true);
 			} else {
 				that.open(id, true);
 			}
-			if (that.bundleDictionaryStates[id] == "closed") {
+			if (that.bundleDictionaryStates[id] == 'closed') {
 				that.closeDictionaryEntry(id, true);
 			} else {
 				that.openDictionaryEntry(id, true);
 			}
-		}
+		};
 
 		// Set initial visibility of all registered bundles
 		that.setAll = function() {
 			jQuery.each(that.bundles, function(k, id) {
+				var container = jQuery("#" + id);
+
 				if(that.bundleStates[id] == 'closed') {
-					jQuery("#" + id).hide();
+					container.hide();
 				} else {
-					jQuery("#" + id).show();
+					container.show();
 				}
 			});
-		}
+		};
 
 		// Toggle bundle
 		that.toggle = function(id) {
@@ -505,7 +520,7 @@ var caUI = caUI || {};
 				that.close(id);
 			}
 			return false;
-		}
+		};
 
 		// Open bundle
 		that.open = function(id, dontAnimate) {
@@ -532,7 +547,7 @@ var caUI = caUI || {};
 				}
 			}
 			return false;
-		}
+		};
 
 		// Close bundle
 		that.close = function(id, dontAnimate) {
@@ -559,7 +574,7 @@ var caUI = caUI || {};
 				}
 			}
 			return false;
-		}
+		};
 
 		// Toggle dictionary entry
 		that.toggleDictionaryEntry = function(id) {
@@ -569,7 +584,7 @@ var caUI = caUI || {};
 				that.closeDictionaryEntry(id);
 			}
 			return false;
-		}
+		};
 
 		// Open dictionary entry
 		that.openDictionaryEntry = function(id, dontAnimate) {
@@ -595,7 +610,7 @@ var caUI = caUI || {};
 			}
 
 			return false;
-		}
+		};
 
 		// Close dictionary entry
 		that.closeDictionaryEntry = function(id, dontAnimate) {
@@ -616,7 +631,7 @@ var caUI = caUI || {};
 				}
 			}
 			return false;
-		}
+		};
 
 		// --------------------------------------------------------------------------------
 
@@ -1597,17 +1612,17 @@ var caUI = caUI || {};
  * the terms of the provided license as published by Whirl-i-Gig
  *
  * CollectiveAccess is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTIES whatsoever, including any implied warranty of 
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  
+ * WITHOUT ANY WARRANTIES whatsoever, including any implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
  *
- * This source code is free and modifiable under the terms of 
+ * This source code is free and modifiable under the terms of
  * GNU General Public License. (http://www.gnu.org/copyleft/gpl.html). See
  * the "license.txt" file for details, or visit the CollectiveAccess web site at
  * http://www.CollectiveAccess.org
  *
  * ----------------------------------------------------------------------
  */
- 
+
 var caUI = caUI || {};
 
 (function ($) {
@@ -1615,10 +1630,10 @@ var caUI = caUI || {};
 		// --------------------------------------------------------------------------------
 		// setup options
 		var that = jQuery.extend({
-			
+
 		}, options);
-		
-		
+
+
 		that.unitTable = {
 			// Length
 			'"': "in", "”": "in", "in.": "in", "inch": "in", "inches": "in",
@@ -1629,7 +1644,7 @@ var caUI = caUI || {};
 			"k": "kilometer", "km": "kilometer", "kilometers": "kilometer", "kilometre": "kilometer", "kilometres": "kilometer",
 			"pt": "point", "pt.": "point",
 			"mile": "miles", "mi" : "miles",
-			
+
 			// Weight
 			"lbs": "pounds", "lb": "pounds", "lb.": "pounds", "pound": "pounds",
 			"kg": "kilograms", "kg.": "kilograms", "kilo": "kilograms", "kilos": "kilograms", "kilogram": "kilograms",
@@ -1641,47 +1656,50 @@ var caUI = caUI || {};
 		// --------------------------------------------------------------------------------
 		// Define methods
 		// --------------------------------------------------------------------------------
-		that.processTemplate = function(template, values) {
+		that.processDependentTemplate = function(template, values) {
 			var t = template;
-				
+
 			// get tags from template
 			var tagRegex = /\^([\/A-Za-z0-9]+\[[\@\[\]\=\'A-Za-z0-9\.\-\/]+|[A-Za-z0-9_\.:\/]+[%]{1}[^ \^\t\r\n\"\'<>\(\)\{\}\/]*|[A-Za-z0-9_\.~:\/]+)/g;
-			var tagList = template.match(tagRegex)
+			var tagList = template.match(tagRegex);
 			var unitRegex = /[\d\.\,]+(.*)$/;
-			
+
 			jQuery.each(tagList, function(i, tag) {
+				var tagProc = tag.replace("^", "");
 				if(tag.indexOf("~") === -1) {
-					var tagProc = tag.replace("^", "");
-					
-					if (jQuery('select' + values[tagProc] + ' option:selected').length) {
-						t=t.replace(tag, jQuery('select' + values[tagProc] + ' option:selected').text());
+					var selected = jQuery('select' + values[tagProc] + ' option:selected');
+					if (selected.length) {
+						t=t.replace(tag, selected.text());
 					} else {
 						t=t.replace(tag, jQuery(values[tagProc]).val());
 					}
 				} else {
 					var tagBits = tag.split(/\~/);
 					var tagRoot = tagBits[0].replace("^", "");
-					var tagProc = tag.replace("^", "");
 					var cmd = tagBits[1].split(/\:/);
 					switch(cmd[0].toLowerCase()) {
 						case 'units':
 							var val = jQuery(values[tagRoot]).val();
-							val = that.convertFractionalNumberToDecimal(val); 
-							
+							val = that.convertFractionalNumberToDecimal(val);
+
 							var unitBits = val.match(unitRegex);
-							if (!unitBits || unitBits.length < 2) { 
+							if (!unitBits || unitBits.length < 2) {
 								t = t.replace(tag, val);
-								break; 
+								break;
 							}
 							var units = unitBits[1].trim();
-							
+
 							if (that.unitTable[units]) {
 								val = val.replace(units, that.unitTable[units]);
 							}
 
 							try {
 								var qty = new Qty(val);
-								t=t.replace(tag, qty.to(cmd[1]).toPrec(0.2).toString());
+								if(cmd[1] == units) { // do not round if unit is unchanged!
+									t=t.replace(tag, qty.to(cmd[1]).toString());
+								} else {
+									t=t.replace(tag, qty.to(cmd[1]).toPrec(0.01).toString());
+								}
 							} catch(e) {
 								// noop - replace tag with existing value
 								t=t.replace(tag, val);
@@ -1690,16 +1708,16 @@ var caUI = caUI || {};
 					}
 				}
 			});
-			
+
 			// Process <ifdef> tags
 			var $h = jQuery("<div>" + t + "</div>");
 			jQuery.each(tagList, function(k, tag) {
 				var tagBits = tag.split(/\~/);
 				var tagRoot = tagBits[0].replace("^", "");
 				var val = jQuery(values[tagRoot]).val();
-				
-				if(val && (val.length > 0)) { 
-					jQuery.each($h.find("ifdef[code=" + tagRoot + "]"), function(k, v) { 
+
+				if(val && (val.length > 0)) {
+					jQuery.each($h.find("ifdef[code=" + tagRoot + "]"), function(k, v) {
 						jQuery(v).replaceWith(jQuery(v).html());
 					});
 				} else {
@@ -1708,7 +1726,9 @@ var caUI = caUI || {};
 			});
 			return $h.html().trim();
 		};
-		
+		// --------------------------------------------------------------------------------
+		// helpers
+		// --------------------------------------------------------------------------------
 		that.convertFractionalNumberToDecimal = function(fractionalExpression, locale) {
 			if(!fractionalExpression) { return ''; }
 			// convert ascii fractions (eg. 1/2) to decimal
@@ -1718,22 +1738,23 @@ var caUI = caUI || {};
 				if (parseFloat(matches[2]) > 0) {
 					val = parseFloat(matches[2])/parseFloat(matches[3]);
 				}
-				
+
 				val += parseFloat(matches[1]);
-				
+
 				fractionalExpression = fractionalExpression.replace(matches[0], val);
-			} 
-		
+			}
+
 			return fractionalExpression;
 		};
-		
+
 		// --------------------------------------------------------------------------------
-		
+
 		return that;
 	};
-	
+
 	caDisplayTemplateParser = caUI.initDisplayTemplateParser();
 })(jQuery);
+
 /* ----------------------------------------------------------------------
  * js/ca/ca.genericbundle.js
  * ----------------------------------------------------------------------
@@ -1742,7 +1763,7 @@ var caUI = caUI || {};
  * ----------------------------------------------------------------------
  *
  * Software by Whirl-i-Gig (http://www.whirl-i-gig.com)
- * Copyright 2008-2014 Whirl-i-Gig
+ * Copyright 2008-2015 Whirl-i-Gig
  *
  * For more information visit http://www.CollectiveAccess.org
  *
@@ -1839,9 +1860,7 @@ var caUI = caUI || {};
 		that.showUnsavedChangesWarning = function(b) {
 			if(caUI && caUI.utils && typeof caUI.utils.showUnsavedChangesWarning === 'function') {
 				if (b === undefined) { b = true; }
-				if (caUI.utils.getDisableUnsavedChangesWarning()) {
-					caUI.utils.showUnsavedChangesWarning(b);
-				}
+				caUI.utils.showUnsavedChangesWarning(b);
 			}
 		}
 		
@@ -2666,6 +2685,13 @@ var caUI = caUI || {};
 			autoShrinkMaxHeightPx: 180,
 			autoShrinkAnimateID: '',
 
+			/* how do we treat disabled items in the browser? can be
+			 *  - 'disable' : list items default behavior - i.e. show the item but don't make it a clickable link
+			 *  - 'hide' : completely hide them from the browser
+			 *  - 'full' : don't treat disabled items any differently
+			 */
+			disabledItems: 'disable',
+
 			displayCurrentSelectionOnLoad: true,
 			typeMenuID: '',
 
@@ -2983,10 +3009,24 @@ var caUI = caUI || {};
 									moreButton += "<div style='float: right; margin-right: 5px; opacity: 0.3;' id='hierBrowser_" + that.name + "_extract_container'><a href='#' id='hierBrowser_" + that.name + "_extract'>" + that.extractFromHierarchyButtonIcon + "</a></div>";
 								}
 
+								var skipNextLevelNav = false;
 								if ((item.is_enabled !== undefined) && (parseInt(item.is_enabled) === 0)) {
-									jQuery('#' + newLevelListID).append(
-										"<li class='" + that.className + "'>" + moreButton +  item.name + "</li>"
-									);
+									switch (that.disabledItems) {
+										case 'full':
+											jQuery('#' + newLevelListID).append(
+												"<li class='" + that.className + "'>" + moreButton + "<a href='#' id='hierBrowser_" + that.name + '_level_' + level + '_item_' + item['item_id'] + "' class='" + that.className + "'>"  +  item.name + "</a></li>"
+											);
+											break;
+										case 'hide': // item is hidden -> noop
+											skipNextLevelNav = true; // skip adding the "navigate to the next level" code
+											break;
+										case 'disabled':
+										default:
+											jQuery('#' + newLevelListID).append(
+												"<li class='" + that.className + "'>" + moreButton +  item.name + "</li>"
+											);
+											break;
+									}
 								} else if ((!((level == 0) && that.dontAllowEditForFirstLevel))) {
 									jQuery('#' + newLevelListID).append(
 										"<li class='" + that.className + "'>" + moreButton +"<a href='#' id='hierBrowser_" + that.name + '_level_' + level + '_item_' + item['item_id'] + "' class='" + that.className + "'>"  +  item.name + "</a></li>"
@@ -2997,18 +3037,28 @@ var caUI = caUI || {};
 									);
 								}
 
-								jQuery('#' + newLevelListID + " li:last a").data('item_id', item['item_id']);
-								jQuery('#' + newLevelListID + " li:last a").data('item', item);
-								if(that.editDataForFirstLevel) {
-									jQuery('#' + newLevelListID + " li:last a").data(that.editDataForFirstLevel, item[that.editDataForFirstLevel]);
+								if(!skipNextLevelNav) {
+									jQuery('#' + newLevelListID + " li:last a").data('item_id', item['item_id']);
+									jQuery('#' + newLevelListID + " li:last a").data('item', item);
+									if(that.editDataForFirstLevel) {
+										jQuery('#' + newLevelListID + " li:last a").data(that.editDataForFirstLevel, item[that.editDataForFirstLevel]);
+									}
+
+									if (that.hasChildrenIndicator) {
+										jQuery('#' + newLevelListID + " li:last a").data('has_children', item[that.hasChildrenIndicator] ? true : false);
+									}
 								}
 
-								if (that.hasChildrenIndicator) {
-									jQuery('#' + newLevelListID + " li:last a").data('has_children', item[that.hasChildrenIndicator] ? true : false);
-								}
-
-								// edit button
-								if ((!((level == 0) && that.dontAllowEditForFirstLevel)) && ((item.is_enabled === undefined) || (parseInt(item.is_enabled) === 1))) {
+								// edit button, if .. (trying to make this readable ...)
+								if (
+									(!((level == 0) && that.dontAllowEditForFirstLevel)) // this is not the first level or it is but we allow editing the first level, AND ..
+									&&
+									(
+										(item.is_enabled === undefined) || 		// the item doesn't have a is_enabled property (e.g. places) OR ...
+										(parseInt(item.is_enabled) === 1) || 	// it's enabled OR ...
+										((parseInt(item.is_enabled) === 0) && that.disabledItems == 'full') // it's disabled, but the render mode tells us to not treat disabled items differently
+									)
+								) {
 									var editUrl = '';
 									var editData = 'item_id';
 									if (that.editUrlForFirstLevel && (level == 0)) {
@@ -4512,6 +4562,13 @@ var caUI = caUI || {};
 				if(typeof options.lists != 'object') { options.lists = [options.lists]; }
 				options.extraParams.lists = options.lists.join(";");
 			}
+
+			// restrict to search expression
+			if (options && options.restrictToSearch && options.restrictToSearch.length) {
+				if (!options.extraParams) { options.extraParams = {}; }
+				if (typeof options.restrictToSearch != 'string') { options.restrictToSearch = ''; }
+				options.extraParams.restrictToSearch = options.restrictToSearch;
+			}
 			
 			// restrict to types (for all lookups) - limits lookup to specific types of items (NOT relationship types)
 			if (options && options.types && options.types.length) {
@@ -4525,6 +4582,11 @@ var caUI = caUI || {};
 				for(i=0; i < typeList.length; i++) {
 					types.push({type_id: typeList[i].type_id, typename: typeList[i].typename, direction: typeList[i].direction});
 				}
+			}
+			
+			if (caUI && caUI.utils && caUI.utils.showUnsavedChangesWarning) {
+				// Attached change handler to form elements in relationship
+				jQuery('#' + options.itemID + id + ' select, #' + options.itemID + id + ' input, #' + options.itemID + id + ' textarea').not('.dontTriggerUnsavedChangeWarning').change(function() { caUI.utils.showUnsavedChangesWarning(true); });
 			}
 		};
 		
