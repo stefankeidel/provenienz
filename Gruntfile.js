@@ -3,14 +3,18 @@ module.exports = function(grunt) {
 	grunt.initConfig({
 		pkg: grunt.file.readJSON('package.json'),
 		bower_concat: {
+			// generic bower "all" package for default assets/resources
 			all: {
 				dest: 'assets/default/bower.combined.js',
 				cssDest: 'assets/default/bower.combined.css',
 				bowerOptions: {
 					relative: false
 				},
+				// exclude packages that we want to roll into extra combined assets that are not necessarily always included
 				exclude: [
+					// caldendar
 					'fullcalendar', 'moment',
+					// google
 					'google-geolocationmarker', 'google-markerclusterer', 'google-pickonmap', 'jquery-timers'
 				]
 			},
