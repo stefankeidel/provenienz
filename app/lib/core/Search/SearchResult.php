@@ -585,13 +585,14 @@ class SearchResult extends BaseObject {
 		";
 		$qr_rel = $this->opo_subject_instance->getDb()->query($vs_sql);
 		
-		$va_rel_row_ids = array();
+		$vs_rel_pk = $t_rel_instance->primaryKey();
 		while($qr_rel->nextRow()) {
 			$va_row = $qr_rel->getRow();
 			$vn_row_id = $va_row[$this->ops_table_pk];
+			$vn_rel_row_id = $va_row[$vs_rel_pk];
 			
 			$vn_locale_id = $vb_has_locale_id ? $va_row['locale_id'] : null;
-			self::$s_prefetch_cache[$ps_tablename][$vn_row_id][$vn_locale_id][] = $va_row;
+			self::$s_prefetch_cache[$ps_tablename][$vn_row_id][$vn_locale_id][$vn_rel_row_id] = $va_row;
 		}
 		
 		// Fill row_id values for which there is nothing to prefetch with an empty lists
@@ -1496,7 +1497,7 @@ class SearchResult extends BaseObject {
 				foreach($va_values as $o_value) {
 					$vs_element_code = $o_value->getElementCode();
 					if ($va_path_components['subfield_name']) {
-						if ($va_path_components['subfield_name'] !== $vs_element_code) { continue; }
+						if ($va_path_components['subfield_name'] !== $vs_element_code && !($o_value instanceof InformationServiceAttributeValue)) { continue; }
 						$vs_element_code = is_array($va_return_values[$vn_c][$vn_locale_id]) ? sizeof($va_return_values[$vn_c][$vn_locale_id]) : 0;
 					}
 					
@@ -1506,6 +1507,21 @@ class SearchResult extends BaseObject {
 							$vn_list_id = $t_element->get('list_id');
 							
 							$vs_val_proc = $o_value->getDisplayValue(array_merge($pa_options, array('alwaysReturnItemID' => !caGetOption('convertCodesToDisplayText', $pa_options, false), 'list_id' => $vn_list_id)));
+							break;
+						case __CA_ATTRIBUTE_VALUE_INFORMATIONSERVICE__:
+							// support subfield notations like ca_objects.wikipedia.abstract, but only if we're not already at subfield-level, e.g. ca_objects.container.wikipedia
+							if($va_path_components['subfield_name'] && ($o_value->getElementCode() != $va_path_components['subfield_name'])) {
+								$vs_val_proc = $o_value->getExtraInfo($va_path_components['subfield_name']);
+								break;
+							}
+
+							// support ca_objects.container.wikipedia.abstract
+							if(($o_value->getElementCode() == $va_path_components['subfield_name']) && ($va_path_components['num_components'] == 4)) {
+								$vs_val_proc = $o_value->getExtraInfo($va_path_components['components'][3]);
+								break;
+							}
+
+							$vs_val_proc = $o_value->getDisplayValue($pa_options);
 							break;
 						default:
 							$vs_val_proc = $o_value->getDisplayValue($pa_options);
