@@ -12,6 +12,7 @@ setup.php
 *.un~
 *.sublime-*
 *.swp
+.vagrant/
 /import/*
 app/lib/core/Parsers/htmlpurifier/standalone/HTMLPurifier/DefinitionCache/Serializer/*
 app/lib/core/Parsers/dompdf/lib/fonts/*fm.php
@@ -20,4 +21,5 @@ themes/default/css/local.css
 node_modules/
 bower_components/
 themes/default/views/bundles/inspector_info.php
-
+support/scripts/*.php
+support/scripts/*.sh
