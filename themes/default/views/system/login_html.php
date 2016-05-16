@@ -88,6 +88,15 @@
 	<div id="forgotLink"><a href="<?php print $vs_adapter_account_link; ?>" target="_blank"><?php print _t("Manage your account"); ?></a></div>
 <?php } ?>
 				</div><!-- end loginForm -->
+
+				<div align="center" style="padding-bottom:30px;font-size: 11px;">Mit dem Einloggen akzeptieren Sie die <a href="/nutzungsbedingungen" target="_blank">Nutzungsbedingungen</a>.</div>
+				<div align="center" style="padding-bottom:30px;font-size: 14px;">Ein Projekt von Christina Gschiel und René Schober<br />(Beratung: A. Zeisberg), <br />finanziert und gefördert von</div>
+				<div align="center">
+					<img src="<?php print $this->request->getThemeUrlPath()."/graphics/provenance/kommission.gif";?>" border="0">
+					<img style="margin-top:20px; padding-bottom: 37px;" src="<?php print $this->request->getThemeUrlPath()."/graphics/provenance/bka.jpg";?>" border="0">
+
+				</div>
+
 			</div><!-- end loginBox -->
 		</div><!-- end center -->
 	</body>

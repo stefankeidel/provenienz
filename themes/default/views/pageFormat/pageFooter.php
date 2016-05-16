@@ -48,9 +48,10 @@
 					print caNavLink($this->request, _t('Login'), '', 'system', 'auth', 'login');
 				}
 ?>
-				&nbsp;&nbsp;|&nbsp;&nbsp; &copy; 2015 Whirl-i-Gig, <a href="http://www.collectiveaccess.org" target="_blank">CollectiveAccess</a> <?php _p("is a trademark of"); ?> <a href="http://www.whirl-i-gig.com" target="_blank">Whirl-i-Gig</a>
-				[<?php print $this->request->session->elapsedTime(4).'s'; ?>/<?php print caGetMemoryUsage(); ?>]
-				<?php if (Db::$monitor) { print " [<a href='#' onclick='jQuery(\"#caApplicationMonitor\").slideToggle(100); return false;'>$</a>]"; } ?>
+				&nbsp;&nbsp;|&nbsp;&nbsp; &copy; 2015 <a href="http://www.whirl-i-gig.com" target="_blank">Whirl-i-Gig</a>
+				&nbsp;&nbsp;|&nbsp;&nbsp; <a href="/impressum" target="_blank">Impressum</a>
+				&nbsp;&nbsp;|&nbsp;&nbsp; <a href="/handbuch.pdf" target="_blank">Handbuch</a>
+				&nbsp;&nbsp;|&nbsp;&nbsp; <a href="/nutzungsbedingungen" target="_blank">Nutzungsbedingungen</a>
 			</div></div><!-- end footer -->
 		</div><!-- end footerContainer -->
 		</div><!-- end center -->
