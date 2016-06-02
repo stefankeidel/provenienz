@@ -819,7 +819,7 @@ final class ConfigurationExporter {
 	public function getRelationshipTypesAsDOM() {
 		$vo_rel_types = $this->opo_dom->createElement("relationshipTypes");
 
-		$qr_tables = $this->opo_db->query("SELECT DISTINCT table_num FROM ca_relationship_types ORDER BY type_id");
+		$qr_tables = $this->opo_db->query("SELECT DISTINCT table_num FROM ca_relationship_types");
 
 		while($qr_tables->nextRow()) {
 			$vo_table = $this->opo_dom->createElement("relationshipTable");
@@ -847,7 +847,7 @@ final class ConfigurationExporter {
 
 		$vo_types = $this->opo_dom->createElement("types");
 
-		$qr_types = $this->opo_db->query("SELECT * FROM ca_relationship_types WHERE parent_id=?",$pn_parent_id);
+		$qr_types = $this->opo_db->query("SELECT * FROM ca_relationship_types WHERE parent_id=? ORDER BY rank, type_id",$pn_parent_id);
 		if(!$qr_types->numRows()) return false;
 
 		while($qr_types->nextRow()) {
@@ -1183,6 +1183,16 @@ final class ConfigurationExporter {
 					}
 				}
 				$vs_buf .= "\t\t</settings>\n";
+			}
+
+			// type restrictions
+			$va_type_restrictions = $t_display->getTypeRestrictions();
+			if(is_array($va_type_restrictions) && (sizeof($va_type_restrictions) > 0)) {
+				$vs_buf .= "\t\t<typeRestrictions>\n";
+				foreach($va_type_restrictions as $va_restriction) {
+					$vs_buf .= "\t\t\t<restriction type='{$va_restriction['type_code']}' />\n";
+				}
+				$vs_buf .= "\t\t</typeRestrictions>\n";
 			}
 
 			// User and group access
