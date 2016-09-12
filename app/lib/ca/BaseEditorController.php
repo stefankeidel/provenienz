@@ -1646,7 +1646,7 @@ class BaseEditorController extends ActionController {
 				if (
 					(!$pt_subject->get('source_id'))
 					||
-					($pt_subject->get('source_id') && !in_array($pt_subject->get('source_id'), $va_restrict_to_sources))
+					($pt_subject->get('source_id') && in_array($pt_subject->get('source_id'), $va_restrict_to_sources))
 					||
 					((strlen($vn_source_id = $this->request->getParameter('source_id', pInteger))) && !in_array($vn_source_id, $va_restrict_to_sources))
 				) {
@@ -2119,12 +2119,22 @@ class BaseEditorController extends ActionController {
 
 		if (!($vn_limit = ini_get('max_execution_time'))) { $vn_limit = 30; }
 		set_time_limit($vn_limit * 2);
-		$o_zip = new ZipStream();
-		foreach($va_file_paths as $vs_path => $vs_name) {
-			$o_zip->addFile($vs_path, $vs_name);
+		
+		if (sizeof($va_file_paths) > 1) {
+			$o_zip = new ZipStream();
+			foreach($va_file_paths as $vs_path => $vs_name) {
+				$o_zip->addFile($vs_path, $vs_name);
+			}
+			$o_view->setVar('zip_stream', $o_zip);
+			$o_view->setVar('archive_name', preg_replace('![^A-Za-z0-9\.\-]+!', '_', $t_subject->get('idno')).'.zip');
+		} else {
+			foreach($va_file_paths as $vs_path => $vs_name) {
+				$o_view->setVar('archive_path', $vs_path);
+				$o_view->setVar('archive_name', $vs_name);
+				break;
+			}
 		}
-		$o_view->setVar('zip_stream', $o_zip);
-		$o_view->setVar('archive_name', preg_replace('![^A-Za-z0-9\.\-]+!', '_', $t_subject->get('idno')).'.zip');
+
 
 		$this->response->addContent($o_view->render('download_file_binary.php'));
 		set_time_limit($vn_limit);
